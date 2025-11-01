@@ -1,5 +1,7 @@
+require("@nomicfoundation/hardhat-toolbox");
+
 /** @type import('hardhat/config').HardhatUserConfig */
-export default {
+module.exports = {
   solidity: {
     version: "0.8.27",
     settings: {
@@ -7,6 +9,11 @@ export default {
         enabled: true,
         runs: 200
       }
+    }
+  },
+  networks: {
+    hardhat: {
+      chainId: 31337
     }
   }
 };
