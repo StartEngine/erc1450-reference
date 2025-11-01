@@ -1,0 +1,38 @@
+{
+  "name": "erc1450-reference",
+  "version": "1.0.0",
+  "description": "Official reference implementation of the ERC-1450 RTA-Controlled Security Token Standard.",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "coverage": "hardhat coverage",
+    "clean": "hardhat clean",
+    "node": "hardhat node",
+    "deploy": "hardhat run scripts/deploy.js",
+    "verify": "hardhat verify"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/StartEngine/erc1450-reference.git"
+  },
+  "keywords": [
+    "erc1450",
+    "security-token",
+    "rta",
+    "ethereum",
+    "blockchain"
+  ],
+  "author": "StartEngine",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/StartEngine/erc1450-reference/issues"
+  },
+  "homepage": "https://github.com/StartEngine/erc1450-reference#readme",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
+    "@openzeppelin/contracts": "^5.4.0",
+    "hardhat": "^3.0.10"
+  },
+  "type": "module"
+}
