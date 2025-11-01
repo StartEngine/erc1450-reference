@@ -12,18 +12,6 @@ import "@openzeppelin/contracts/interfaces/IERC165.sol";
 interface IERC1450 is IERC20, IERC165 {
     // ============ Errors (ERC-6093 Compliant) ============
 
-    // Standard ERC-6093 errors
-    error ERC20InsufficientBalance(address sender, uint256 balance, uint256 needed);
-    error ERC20InvalidSender(address sender);
-    error ERC20InvalidReceiver(address receiver);
-    error ERC20InsufficientAllowance(address spender, uint256 allowance, uint256 needed);
-    error ERC20InvalidApprover(address approver);
-    error ERC20InvalidSpender(address spender);
-
-    // Access control errors
-    error OwnableUnauthorizedAccount(address account);
-    error OwnableInvalidOwner(address owner);
-
     // ERC-1450 specific errors
     error ERC1450TransferDisabled();
     error ERC1450OnlyRTA();
