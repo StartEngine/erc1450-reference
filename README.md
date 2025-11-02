@@ -100,28 +100,31 @@ npx hardhat run scripts/deploy.js --network sepolia
 
 ## Usage
 
-### RTA Operations
+### Quick Demos
 
-The `scripts/rta-operations.js` script provides common RTA operations:
+Run these scripts to see the ERC-1450 system in action:
 
 ```bash
-# Display token information
-npx hardhat run scripts/rta-operations.js info
+# Display token information and run basic demo
+npx hardhat run scripts/info.js
 
-# Mint tokens (requires multi-sig)
-npx hardhat run scripts/rta-operations.js mint 0x123... 1000
+# Demo minting tokens through multi-sig
+npx hardhat run scripts/demo-mint.js
 
-# Process transfer request
-npx hardhat run scripts/rta-operations.js process-transfer 1
+# Demo complete transfer request workflow
+npx hardhat run scripts/demo-transfer.js
+```
 
-# Approve broker
-npx hardhat run scripts/rta-operations.js set-broker 0x456... true
+### RTA Operations
 
-# Freeze account
-npx hardhat run scripts/rta-operations.js freeze 0x789... true
+For production deployments, use the deployment and operations scripts:
 
-# Execute court order
-npx hardhat run scripts/rta-operations.js court-order 0xabc... 0xdef... 500 0xhash...
+```bash
+# Deploy contracts
+npx hardhat run scripts/deploy.js --network localhost
+
+# After deployment, manage operations using the deployment file
+# (Requires deployment-{network}.json file from deploy.js)
 ```
 
 ### Token Holder Operations
