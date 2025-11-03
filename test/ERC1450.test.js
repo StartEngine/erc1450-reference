@@ -349,27 +349,30 @@ describe("ERC1450 Security Token", function () {
 
     describe("Transfer Agent Management", function () {
         it("Should allow owner to set initial transfer agent", async function () {
+            // Deploy with owner as temporary RTA
             const newToken = await ERC1450.deploy(
                 "New Token",
                 "NEW",
                 18,
                 owner.address,
-                ethers.ZeroAddress
+                owner.address  // Start with owner as RTA
             );
             await newToken.waitForDeployment();
 
+            // Then update to actual RTA
             await expect(newToken.setTransferAgent(rta.address))
                 .to.emit(newToken, "TransferAgentUpdated")
-                .withArgs(ethers.ZeroAddress, rta.address);
+                .withArgs(owner.address, rta.address);
         });
 
         it("Should lock transfer agent when set to contract", async function () {
+            // Deploy with owner as temporary RTA
             const newToken = await ERC1450.deploy(
                 "New Token",
                 "NEW",
                 18,
                 owner.address,
-                ethers.ZeroAddress
+                owner.address  // Start with owner as RTA
             );
             await newToken.waitForDeployment();
 

@@ -43,6 +43,7 @@ contract RTAProxy {
     // Events
     event SignerAdded(address indexed signer);
     event SignerRemoved(address indexed signer);
+    event RequiredSignaturesUpdated(uint256 oldRequired, uint256 newRequired);
     event OperationSubmitted(uint256 indexed operationId, address indexed submitter);
     event OperationConfirmed(uint256 indexed operationId, address indexed signer);
     event OperationExecuted(uint256 indexed operationId);
@@ -354,13 +355,15 @@ contract RTAProxy {
      * @notice Update required signatures (requires multi-sig approval)
      * @dev This should be called through submitOperation
      */
-    function updateRequiredSignatures(uint256 _requiredSignatures) external {
+    function updateRequiredSignatures(uint256 newRequiredSignatures) external {
         require(msg.sender == address(this), "Must be called through multi-sig");
 
-        if (_requiredSignatures == 0 || _requiredSignatures > signers.length) {
+        if (newRequiredSignatures == 0 || newRequiredSignatures > signers.length) {
             revert InvalidSignerCount();
         }
 
-        requiredSignatures = _requiredSignatures;
+        uint256 oldRequired = requiredSignatures;
+        requiredSignatures = newRequiredSignatures;
+        emit RequiredSignaturesUpdated(oldRequired, newRequiredSignatures);
     }
 }

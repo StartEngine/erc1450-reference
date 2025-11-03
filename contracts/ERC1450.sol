@@ -92,6 +92,7 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
         address initialOwner,
         address initialTransferAgent
     ) Ownable(initialOwner) {
+        require(initialTransferAgent != address(0), "ERC1450: Invalid transfer agent");
         _name = name_;
         _symbol = symbol_;
         _decimals = decimals_;
@@ -176,6 +177,8 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
     }
 
     function setTransferAgent(address newTransferAgent) external override {
+        require(newTransferAgent != address(0), "ERC1450: Invalid transfer agent");
+
         if (_transferAgentLocked) {
             revert ERC1450TransferAgentLocked();
         }
@@ -360,15 +363,15 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
     }
 
     function setFeeParameters(
-        uint8 _feeType,
-        uint256 _feeValue,
-        address[] calldata _acceptedTokens
+        uint8 newFeeType,
+        uint256 newFeeValue,
+        address[] calldata newAcceptedTokens
     ) external override onlyTransferAgent {
-        feeType = _feeType;
-        feeValue = _feeValue;
-        acceptedFeeTokens = _acceptedTokens;
+        feeType = newFeeType;
+        feeValue = newFeeValue;
+        acceptedFeeTokens = newAcceptedTokens;
 
-        emit FeeParametersUpdated(_feeType, _feeValue, _acceptedTokens);
+        emit FeeParametersUpdated(newFeeType, newFeeValue, newAcceptedTokens);
     }
 
     function withdrawFees(
@@ -376,6 +379,8 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
         uint256 amount,
         address recipient
     ) external override onlyTransferAgent {
+        require(recipient != address(0), "ERC1450: Invalid recipient");
+
         if (collectedFees[token] < amount) {
             revert ERC20InsufficientBalance(address(this), collectedFees[token], amount);
         }
