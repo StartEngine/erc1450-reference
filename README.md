@@ -39,6 +39,8 @@ ERC-1450 enables compliant securities offerings under SEC regulations by providi
 - Court order execution capabilities
 - Broker registration and management
 - Configurable fee structures
+- KYC/AML verification requirements
+- Extended reason codes (0-14, 999) for detailed rejection tracking
 
 ## Architecture
 
@@ -238,6 +240,40 @@ Test coverage includes:
 - ✅ Multi-sig operations
 - ✅ Interface detection (ERC-165)
 
+## Extended Capabilities (Non-Normative)
+
+The ERC-1450 specification includes comprehensive documentation for real-world securities operations:
+
+### Corporate Actions
+- **Stock Splits & Reverse Splits**: Proportional mint/burn operations
+- **Dividends**: Stablecoin distributions with off-chain calculations
+- **Mandatory Redemptions**: Forced buybacks and bond calls
+- **Tender Offers**: Voluntary redemption patterns
+- **Mergers & Acquisitions**: Token swap mechanisms
+
+### Shareholder Governance
+- **Record Dates**: Off-chain snapshots or external snapshot contracts
+- **Proxy Voting**: Vote recording with on-chain attestation
+- **Meeting Quorums**: Threshold calculations and verification
+- **Document Management**: Via ERC-1643 for proxy rules and notices
+
+### Tax Compliance
+- **W-9/W-8 Collection**: Off-chain during KYC process
+- **Withholding Calculations**: Per-jurisdiction off-chain processing
+- **1099/1042-S Reporting**: Annual tax form generation
+- **Document References**: Encrypted storage via ERC-1643
+
+### Secondary Market Integration
+- **ATS Adapter Pattern**: Integration with regulated trading venues
+- **Order Book Visibility**: Via TransferRequested events
+- **Pre-Matched Trades**: Through registered broker submissions
+- **Reason Code Analytics**: Optimization using rejection reasons
+
+### BrokerProxy Pattern (Recommended)
+- Similar to RTAProxy but optional for brokers
+- Enables secure key rotation and multi-sig controls
+- Provides business continuity for broker operations
+
 ## Security Considerations
 
 1. **Private Key Management**: RTA signers must secure their private keys
@@ -262,6 +298,29 @@ This implementation is designed to comply with:
 - Regulation A+ (Qualified offerings)
 - Regulation D (Private placements)
 - Regulation CF (Crowdfunding)
+
+## Transfer Rejection Reason Codes
+
+The implementation includes standardized reason codes for transfer rejections:
+
+| Code | Constant | Description |
+|------|----------|-------------|
+| 0 | REASON_INSUFFICIENT_BALANCE | Sender has fewer tokens than transfer amount |
+| 1 | REASON_INVALID_SENDER | Sender address is invalid or blacklisted |
+| 2 | REASON_INVALID_RECEIVER | Receiver address is invalid or zero |
+| 3 | REASON_COMPLIANCE_FAILURE | Generic compliance check failure |
+| 4 | REASON_TRANSFER_RESTRICTED | Transfer temporarily restricted |
+| 5 | REASON_HOLDER_LIMIT_EXCEEDED | Would exceed maximum holder count |
+| 6 | REASON_TRADING_HALT | Trading is currently halted |
+| 7 | REASON_COURT_ORDER | Transfer blocked by court order |
+| 8 | REASON_REGULATORY_FREEZE | Account frozen by regulator |
+| 9 | REASON_LOCK_PERIOD | Tokens are in lock-up period |
+| 10 | REASON_RECIPIENT_NOT_VERIFIED | Recipient hasn't completed KYC/AML |
+| 11 | REASON_ADDRESS_NOT_LINKED | Address not linked to verified identity |
+| 12 | REASON_SENDER_VERIFICATION_EXPIRED | Sender's KYC has expired |
+| 13 | REASON_JURISDICTION_BLOCKED | Recipient in restricted jurisdiction |
+| 14 | REASON_ACCREDITATION_REQUIRED | Recipient not accredited (Reg D) |
+| 999 | REASON_OTHER | Other unspecified reason |
 
 ## Documentation
 
