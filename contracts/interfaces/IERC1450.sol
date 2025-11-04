@@ -157,15 +157,23 @@ interface IERC1450 is IERC20, IERC165 {
     ) external payable returns (uint256 requestId);
 
     /**
-     * @notice Get current transfer fee
+     * @notice Get current fee for a transfer in a specific token
      * @param from Source address
      * @param to Destination address
      * @param amount Transfer amount
-     * @return feeAmount Required fee amount
-     * @return acceptedTokens Array of accepted fee tokens
+     * @param feeToken Token to pay fee in (address(0) for native token)
+     * @return feeAmount Required fee amount in the specified token
+     *         Returns 0 if the token is not accepted
      */
-    function getTransferFee(address from, address to, uint256 amount)
-        external view returns (uint256 feeAmount, address[] memory acceptedTokens);
+    function getTransferFee(address from, address to, uint256 amount, address feeToken)
+        external view returns (uint256 feeAmount);
+
+    /**
+     * @notice Get all accepted fee tokens for transfers
+     * @return acceptedTokens Array of accepted fee token addresses
+     */
+    function getAcceptedFeeTokens()
+        external view returns (address[] memory acceptedTokens);
 
     /**
      * @notice Set fee parameters (RTA only)

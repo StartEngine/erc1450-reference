@@ -346,8 +346,15 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
     function getTransferFee(
         address, // from
         address, // to
-        uint256 amount
-    ) external view override returns (uint256 feeAmount, address[] memory tokens) {
+        uint256 amount,
+        address feeToken
+    ) external view override returns (uint256 feeAmount) {
+        // Check if the fee token is accepted
+        if (!_isAcceptedFeeToken(feeToken)) {
+            return 0;
+        }
+
+        // Calculate fee based on fee type
         if (feeType == 0) {
             // Flat fee
             feeAmount = feeValue;
@@ -359,7 +366,13 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
             feeAmount = feeValue;
         }
 
-        tokens = acceptedFeeTokens;
+        // In a real implementation, you might adjust fee based on the token
+        // For example, different amounts for different tokens based on their value
+        // This is a simplified version that returns the same fee for all accepted tokens
+    }
+
+    function getAcceptedFeeTokens() external view override returns (address[] memory) {
+        return acceptedFeeTokens;
     }
 
     function setFeeParameters(

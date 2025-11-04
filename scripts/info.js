@@ -36,10 +36,12 @@ async function main() {
     console.log("  Is Security Token:", await token.isSecurityToken());
 
     // Fee information
-    const [feeAmount, acceptedTokens] = await token.getTransferFee(
+    const acceptedTokens = await token.getAcceptedFeeTokens();
+    const feeAmount = await token.getTransferFee(
         ethers.ZeroAddress,
         ethers.ZeroAddress,
-        ethers.parseEther("1000")
+        ethers.parseEther("1000"),
+        ethers.ZeroAddress  // Check fee for native token
     );
 
     console.log("\nFee Configuration:");

@@ -26,7 +26,8 @@ async function main() {
         "decimals()",
         "isSecurityToken()",
         "requestTransferWithFee(address,address,uint256,address,uint256)",
-        "getTransferFee(address,address,uint256)",
+        "getTransferFee(address,address,uint256,address)",  // Updated signature
+        "getAcceptedFeeTokens()",  // New function
         "setFeeParameters(uint8,uint256,address[])",
         "withdrawFees(address,uint256,address)",
         "setBrokerStatus(address,bool)",

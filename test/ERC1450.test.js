@@ -244,23 +244,27 @@ describe("ERC1450 Security Token", function () {
         it("Should calculate flat fee correctly", async function () {
             await token.connect(rta).setFeeParameters(0, ethers.parseEther("10"), [ethers.ZeroAddress]);
 
-            const [feeAmount, tokens] = await token.getTransferFee(
+            const feeAmount = await token.getTransferFee(
                 alice.address,
                 bob.address,
-                ethers.parseEther("1000")
+                ethers.parseEther("1000"),
+                ethers.ZeroAddress  // Native token
             );
 
             expect(feeAmount).to.equal(ethers.parseEther("10"));
+
+            const tokens = await token.getAcceptedFeeTokens();
             expect(tokens[0]).to.equal(ethers.ZeroAddress);
         });
 
         it("Should calculate percentage fee correctly", async function () {
             await token.connect(rta).setFeeParameters(1, 250, [ethers.ZeroAddress]); // 2.5%
 
-            const [feeAmount, ] = await token.getTransferFee(
+            const feeAmount = await token.getTransferFee(
                 alice.address,
                 bob.address,
-                ethers.parseEther("1000")
+                ethers.parseEther("1000"),
+                ethers.ZeroAddress  // Native token
             );
 
             expect(feeAmount).to.equal(ethers.parseEther("25"));

@@ -49,7 +49,7 @@ async function main() {
     // Alice requests a transfer to Bob
     console.log("\n3. Alice requests transfer to Bob...");
     const transferAmount = ethers.parseEther("1000");
-    const [feeAmount] = await token.getTransferFee(alice.address, bob.address, transferAmount);
+    const feeAmount = await token.getTransferFee(alice.address, bob.address, transferAmount, ethers.ZeroAddress);
 
     console.log("   Transfer amount:", ethers.formatEther(transferAmount), "SEST");
     console.log("   Required fee:", ethers.formatEther(feeAmount), "ETH");
