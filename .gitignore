@@ -30,3 +30,17 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Python package build artifacts
+*.egg-info/
+dist/
+build/
+*.pyc
+__pycache__/
+.python-version
+*.egg
+*.whl
+
+# Slither and Mythril reports (can be regenerated)
+slither-report*.json
+mythril-settings.json

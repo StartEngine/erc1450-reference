@@ -343,6 +343,47 @@ For questions and support:
 - Join the discussion on [Ethereum Magicians](https://ethereum-magicians.org/)
 - Contact the StartEngine team
 
+## Python Package 📦
+
+This repository includes a Python package (`startengine-erc1450`) for easy integration with Python-based applications.
+
+### Installation
+```bash
+# Install from GitHub with specific version
+pip install git+https://github.com/StartEngine/erc1450-reference.git@v1.0.0
+```
+
+### Usage
+```python
+from startengine_erc1450 import get_abi, get_bytecode, RTAProxyContract
+
+# Get contract artifacts
+abi = get_abi("RTAProxy")
+bytecode = get_bytecode("RTAProxy")
+
+# Use contract wrappers
+rta = RTAProxyContract()
+deployment_data = rta.get_deployment_data(signers=[...], required_signatures=2)
+```
+
+### ⚠️ IMPORTANT: Release Process
+
+**Whenever you update the smart contracts in this reference implementation, you MUST release a new version of the Python package:**
+
+1. **Make contract changes** and compile: `npm run compile`
+2. **Run release script**: `./release.sh`
+   - This will prompt for version type (patch/minor/major)
+   - Updates version in `startengine_erc1450/__init__.py`
+   - Creates a git tag (e.g., `v1.0.1`)
+3. **Push the release**:
+   ```bash
+   git push origin main
+   git push origin v1.0.1  # Use your new version
+   ```
+4. **Update dependent projects** to use the new version
+
+See [PACKAGE_README.md](PACKAGE_README.md) for detailed package documentation.
+
 ## Security & Audit Status
 
 ### Initial Security Analysis ✅
