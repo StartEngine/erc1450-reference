@@ -78,7 +78,7 @@ setup(
 )
 
 # Version History:
-# 1.0.0 - Initial release with RTAProxy and ERC1450 support
+# 1.0.1 - Initial release with RTAProxy and ERC1450 support
 # 1.0.1 - Bug fixes (future)
 # 1.1.0 - New features (future)
 # 2.0.0 - Breaking changes (future)
