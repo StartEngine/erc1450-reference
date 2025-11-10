@@ -13,6 +13,7 @@ This reference implementation is part of a two-repository system:
    - Contains the formal ERC-1450 specification
    - Location: `/Users/devendergollapally/StartEngineRepositories/ERCs`
    - Spec file: `ERCS/erc-1450.md`
+   - Our pull request [PR](https://github.com/ethereum/ERCs/pull/1335)
 
 2. **Reference Implementation** (this repository): [StartEngine/erc1450-reference](https://github.com/StartEngine/erc1450-reference)
    - Solidity smart contracts implementing the spec
