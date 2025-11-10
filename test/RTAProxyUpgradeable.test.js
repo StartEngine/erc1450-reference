@@ -316,15 +316,24 @@ describe("RTAProxyUpgradeable Multi-Sig", function () {
 
     describe("Time-Lock Features", function () {
         it("Should detect operations requiring time-lock", async function () {
-            const data = token.interface.encodeFunctionData("transferFrom", [
+            // Low value (1000000 wei) - well below threshold
+            const lowValueData = token.interface.encodeFunctionData("transferFrom", [
                 holder1.address,
                 owner.address,
                 1000000
             ]);
 
-            // Note: Current implementation returns false for demo
-            // In production, this would check amount against threshold
-            expect(await rtaProxy.requiresTimeLock(data)).to.be.false;
+            // Low value transfers should not require time-lock
+            expect(await rtaProxy.requiresTimeLock(lowValueData)).to.be.false;
+
+            // High value (1M tokens) - at threshold, should require time-lock
+            const highValueData = token.interface.encodeFunctionData("transferFrom", [
+                holder1.address,
+                owner.address,
+                ethers.parseEther("1000000")
+            ]);
+
+            expect(await rtaProxy.requiresTimeLock(highValueData)).to.be.true;
         });
 
         it("Should handle empty data", async function () {

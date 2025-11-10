@@ -211,12 +211,27 @@ contract RTAProxy {
 
         // Check if this is a high-value transfer
         if (selector == IERC1450.transferFrom.selector ||
-            selector == IERC1450.processTransferRequest.selector ||
             selector == IERC1450.executeCourtOrder.selector) {
 
-            // In production, decode the amount and check against threshold
-            // For demo, we'll return false
-            return false;
+            // Both transferFrom and executeCourtOrder have amount at position 3
+            // transferFrom(address from, address to, uint256 amount)
+            // executeCourtOrder(address from, address to, uint256 amount, bytes32 documentHash)
+
+            // Calldata layout:
+            // bytes 0-3: selector (4 bytes)
+            // bytes 4-35: param 1 (address from)
+            // bytes 36-67: param 2 (address to)
+            // bytes 68-99: param 3 (uint256 amount) <- we want this
+
+            if (data.length < 100) return false; // Not enough data
+
+            uint256 amount;
+            assembly {
+                // Load amount from bytes 68-99 (offset by 32 for length prefix + 68 for position)
+                amount := mload(add(data, 100))
+            }
+
+            return amount >= HIGH_VALUE_THRESHOLD;
         }
 
         return false;

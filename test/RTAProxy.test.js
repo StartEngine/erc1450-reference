@@ -247,15 +247,24 @@ describe("RTAProxy Multi-Sig", function () {
 
     describe("Time-Lock", function () {
         it("Should detect operations requiring time-lock", async function () {
+            const highValue = ethers.parseEther("1000000"); // 1M tokens = threshold
             const transferData = token.interface.encodeFunctionData("transferFrom", [
                 signer1.address,
                 signer2.address,
-                ethers.parseEther("1000000")
+                highValue
             ]);
 
-            // For demo purposes, requiresTimeLock returns false
-            // In production, this would check amount thresholds
-            expect(await rtaProxy.requiresTimeLock(transferData)).to.be.false;
+            // Now implemented: requiresTimeLock checks amount >= HIGH_VALUE_THRESHOLD
+            expect(await rtaProxy.requiresTimeLock(transferData)).to.be.true;
+
+            // Low value transfers should not require time-lock
+            const lowValue = ethers.parseEther("100");
+            const lowValueData = token.interface.encodeFunctionData("transferFrom", [
+                signer1.address,
+                signer2.address,
+                lowValue
+            ]);
+            expect(await rtaProxy.requiresTimeLock(lowValueData)).to.be.false;
         });
 
         it("Should handle empty data", async function () {

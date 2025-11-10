@@ -130,7 +130,7 @@ npm test
 npx hardhat coverage
 
 # Run security analysis (requires Python + Slither)
-slither .
+slither . --print human-summary
 ```
 
 **Note**: The `npm install` command automatically sets up git hooks via Husky. These hooks will run `hardhat compile` and `npm test` before each commit to ensure code quality.
