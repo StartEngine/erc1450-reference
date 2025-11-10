@@ -3,19 +3,32 @@ pragma solidity ^0.8.27;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/introspection/ERC165.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/utils/introspection/ERC165Upgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "./interfaces/IERC1450.sol";
-import "./libraries/ERC1450Constants.sol";
+import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "../interfaces/IERC1450.sol";
+import "../libraries/ERC1450Constants.sol";
 
 /**
- * @title ERC1450
- * @dev Reference implementation of the ERC-1450 RTA-Controlled Security Token Standard
+ * @title ERC1450Upgradeable
+ * @dev Upgradeable implementation of the ERC-1450 RTA-Controlled Security Token Standard
  * @notice This token is designed for compliant securities offerings under SEC regulations
+ *
+ * IMPORTANT: This contract uses UUPS proxy pattern. Only the RTA can authorize upgrades
+ * to ensure security and prevent unauthorized modifications.
  */
-contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
+contract ERC1450Upgradeable is
+    Initializable,
+    IERC1450,
+    IERC20Metadata,
+    ERC165Upgradeable,
+    OwnableUpgradeable,
+    ReentrancyGuardUpgradeable,
+    UUPSUpgradeable
+{
     using SafeERC20 for IERC20;
 
     // ============ Custom Errors (ERC-6093 compliant) ============
@@ -29,7 +42,7 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
     // Token metadata
     string private _name;
     string private _symbol;
-    uint8 private immutable _decimals;
+    uint8 private _decimals;
 
     // Token balances and supply
     mapping(address => uint256) private _balances;
@@ -40,7 +53,7 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
     bool private _transferAgentLocked;
 
     // Transfer request system
-    uint256 private _nextRequestId = 1;
+    uint256 private _nextRequestId;
 
     struct TransferRequest {
         address from;
@@ -67,6 +80,9 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
     // Account restrictions
     mapping(address => bool) public frozenAccounts;
 
+    // Gap for future storage variables (standard practice for upgradeable contracts)
+    uint256[45] private __gap;
+
     // ============ Modifiers ============
 
     modifier onlyTransferAgent() {
@@ -83,25 +99,49 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
         _;
     }
 
-    // ============ Constructor ============
+    // ============ Initializer (replaces constructor) ============
 
-    constructor(
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(
         string memory name_,
         string memory symbol_,
         uint8 decimals_,
         address initialOwner,
         address initialTransferAgent
-    ) Ownable(initialOwner) {
+    ) public initializer {
         require(initialTransferAgent != address(0), "ERC1450: Invalid transfer agent");
+
+        __Ownable_init(initialOwner);
+        __ReentrancyGuard_init();
+        __ERC165_init();
+        __UUPSUpgradeable_init();
+
         _name = name_;
         _symbol = symbol_;
         _decimals = decimals_;
         _transferAgent = initialTransferAgent;
+        _nextRequestId = 1;
 
         // Default fee configuration
         feeType = 0; // Flat fee
         feeValue = 0; // No fee initially
         acceptedFeeTokens.push(address(0)); // Accept native token by default
+    }
+
+    // ============ UUPS Upgrade Authorization ============
+
+    /**
+     * @notice Authorize contract upgrade
+     * @dev Only the RTA can authorize upgrades for security
+     * @param newImplementation Address of the new implementation
+     */
+    function _authorizeUpgrade(address newImplementation) internal override onlyTransferAgent {
+        // Additional validation could be added here
+        // For example, checking the new implementation against a whitelist
     }
 
     // ============ ERC-20 Metadata ============
@@ -365,10 +405,6 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
             // Tiered or custom logic
             feeAmount = feeValue;
         }
-
-        // In a real implementation, you might adjust fee based on the token
-        // For example, different amounts for different tokens based on their value
-        // This is a simplified version that returns the same fee for all accepted tokens
     }
 
     function getAcceptedFeeTokens() external view override returns (address[] memory) {
@@ -451,7 +487,7 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
         return true;
     }
 
-    function supportsInterface(bytes4 interfaceId) public view override(ERC165, IERC165) returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public view override(ERC165Upgradeable, IERC165) returns (bool) {
         return
             interfaceId == 0xaf175dee || // IERC1450
             interfaceId == type(IERC20).interfaceId ||
@@ -520,5 +556,13 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
         } else {
             IERC20(token).safeTransfer(_transferAgent, amount);
         }
+    }
+
+    /**
+     * @notice Get the current implementation version
+     * @return string Version identifier
+     */
+    function version() external pure returns (string memory) {
+        return "1.0.0";
     }
 }

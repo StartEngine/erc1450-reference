@@ -58,6 +58,15 @@ interface IERC1450 is IERC20, IERC165 {
         uint256 expiredAt
     );
 
+    // Court order event
+    event CourtOrderExecuted(
+        address indexed from,
+        address indexed to,
+        uint256 amount,
+        bytes32 documentHash,
+        uint256 timestamp
+    );
+
     // Fee events
     event FeeParametersUpdated(uint8 feeType, uint256 feeValue, address[] acceptedTokens);
     event FeesWithdrawn(address indexed token, uint256 amount, address indexed recipient);

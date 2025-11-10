@@ -4,6 +4,24 @@
 
 This repository contains the official reference implementation of ERC-1450, a standard for compliant security tokens controlled by a Registered Transfer Agent (RTA).
 
+### Project Structure
+
+This reference implementation is part of a two-repository system:
+
+1. **Specification Repository**: [StartEngine/ERCs](https://github.com/StartEngine/ERCs)
+   - Fork of [ethereum/ERCs](https://github.com/ethereum/ERCs)
+   - Contains the formal ERC-1450 specification
+   - Location: `/Users/devendergollapally/StartEngineRepositories/ERCs`
+   - Spec file: `ERCS/erc-1450.md`
+
+2. **Reference Implementation** (this repository): [StartEngine/erc1450-reference](https://github.com/StartEngine/erc1450-reference)
+   - Solidity smart contracts implementing the spec
+   - Comprehensive test suite
+   - Location: `/Users/devendergollapally/StartEngineRepositories/erc1450-reference`
+   - Contracts: `contracts/ERC1450.sol`, `contracts/RTAProxy.sol`
+
+**Important**: Any changes to the contracts in this repository should be validated against the formal specification in the ERCs repository to ensure compliance.
+
 ## Overview
 
 ERC-1450 enables compliant securities offerings under SEC regulations by providing:
@@ -41,6 +59,37 @@ ERC-1450 enables compliant securities offerings under SEC regulations by providi
 - Configurable fee structures
 - KYC/AML verification requirements
 - Extended reason codes (0-14, 999) for detailed rejection tracking
+
+## Upgradeability (New!)
+
+This implementation now includes **upgradeable versions** of the contracts using OpenZeppelin's UUPS proxy pattern, allowing critical bug fixes without requiring token holder action.
+
+### Upgradeable Contracts Available
+- `ERC1450Upgradeable.sol` - Upgradeable token implementation
+- `RTAProxyUpgradeable.sol` - Upgradeable multi-sig RTA
+
+### Benefits
+- **Bug Fixes**: Deploy patches without changing contract addresses
+- **No Migration**: Token holders keep the same addresses and balances
+- **Secure**: Upgrades require multi-sig RTA approval
+- **Gas Efficient**: UUPS pattern minimizes overhead
+
+### Deployment Options
+```bash
+# Deploy standard (immutable) contracts
+npx hardhat run scripts/deploy.js --network polygon
+
+# Deploy upgradeable contracts (recommended for production)
+npx hardhat run scripts/deploy-upgradeable.js --network polygon
+```
+
+### Upgrade Process
+```bash
+# Upgrade contracts (requires multi-sig approval)
+npx hardhat run scripts/upgrade.js --network polygon
+```
+
+For detailed upgradeability documentation, see [UPGRADEABILITY.md](./UPGRADEABILITY.md).
 
 ## Architecture
 
