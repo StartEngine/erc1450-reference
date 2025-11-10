@@ -117,15 +117,61 @@ For detailed upgradeability documentation, see [UPGRADEABILITY.md](./UPGRADEABIL
 git clone https://github.com/StartEngine/erc1450-reference.git
 cd erc1450-reference
 
-# Install dependencies
+# Install dependencies (also installs git hooks via Husky)
 npm install
 
 # Compile contracts
 npx hardhat compile
 
 # Run tests
-npx hardhat test
+npm test
+
+# Check test coverage
+npx hardhat coverage
+
+# Run security analysis (requires Python + Slither)
+slither .
 ```
+
+**Note**: The `npm install` command automatically sets up git hooks via Husky. These hooks will run `hardhat compile` and `npm test` before each commit to ensure code quality.
+
+## Developer Workflow
+
+For contributors and developers working on this project:
+
+1. **Clone & Setup**
+   ```bash
+   git clone https://github.com/StartEngine/erc1450-reference.git
+   cd erc1450-reference
+   npm install  # Auto-installs Husky pre-commit hooks
+   ```
+
+2. **Compile Contracts**
+   ```bash
+   npx hardhat compile
+   ```
+
+3. **Run Tests**
+   ```bash
+   npm test  # Runs all 341 tests
+   ```
+
+4. **Check Coverage**
+   ```bash
+   npx hardhat coverage  # Current: 86.2% branch coverage
+   ```
+
+5. **Security Analysis** (optional, requires [Slither](https://github.com/crytic/slither))
+   ```bash
+   pip install slither-analyzer
+   slither .
+   ```
+
+6. **Pre-Commit Hooks** (automatic)
+   - Husky automatically runs before each commit:
+     - ✅ Compiles all Solidity contracts
+     - ✅ Runs full test suite (341 tests)
+   - To bypass (not recommended): `git commit --no-verify`
 
 ## Deployment
 
