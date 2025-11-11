@@ -1,4 +1,4 @@
-const { ethers, upgrades } = require("hardhat");
+const { ethers, upgrades, network } = require("hardhat");
 const fs = require('fs');
 const path = require('path');
 

@@ -298,7 +298,16 @@ contract RTAProxyUpgradeable is Initializable, UUPSUpgradeable {
     function _checkAndExecute(uint256 operationId) internal {
         Operation storage op = operations[operationId];
 
-        if (op.confirmations < requiredSignatures) {
+        // Recompute confirmations from active signers only
+        // This prevents removed signers' confirmations from counting
+        uint256 activeConfirmations = 0;
+        for (uint256 i = 0; i < signers.length; i++) {
+            if (op.hasConfirmed[signers[i]]) {
+                activeConfirmations++;
+            }
+        }
+
+        if (activeConfirmations < requiredSignatures) {
             revert InsufficientConfirmations();
         }
 

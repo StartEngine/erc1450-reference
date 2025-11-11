@@ -315,11 +315,15 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
             const rejectedRequest = await token.transferRequests(requestId);
             expect(rejectedRequest.status).to.equal(3); // Rejected
 
-            // Process will change status from Rejected to Approved and execute
-            // This is by design - RTA can override rejection
-            await token.connect(rta).processTransferRequest(requestId);
+            // Try to process rejected request - should fail (security fix)
+            // Rejected requests are finalized and cannot be re-processed
+            await expect(
+                token.connect(rta).processTransferRequest(requestId)
+            ).to.be.revertedWith("ERC1450: Request already finalized");
+
+            // Verify status remains rejected
             const finalRequest = await token.transferRequests(requestId);
-            expect(finalRequest.status).to.equal(4); // Executed
+            expect(finalRequest.status).to.equal(3); // Still Rejected
         });
     });
 
