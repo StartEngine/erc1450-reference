@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.27;
 
-import "./interfaces/IERC1450.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "../interfaces/IERC1450.sol";
 
 /**
- * @title RTAProxy
- * @dev Proxy contract for RTA operations with multi-signature and time-lock features
+ * @title RTAProxyUpgradeable
+ * @dev Upgradeable proxy contract for RTA operations with multi-signature and time-lock features
  * @notice This contract acts as the immutable transfer agent for ERC-1450 tokens
  *
  * The RTAProxy pattern provides:
@@ -13,8 +15,11 @@ import "./interfaces/IERC1450.sol";
  * - Multi-signature requirements for critical operations
  * - Time-locks for high-value transfers
  * - Audit trail of all RTA actions
+ * - Upgradeability for bug fixes and improvements
+ *
+ * IMPORTANT: Upgrades require multi-sig approval through the contract's own mechanism
  */
-contract RTAProxy {
+contract RTAProxyUpgradeable is Initializable, UUPSUpgradeable {
     // ============ State Variables ============
 
     // Multi-sig configuration
@@ -40,6 +45,13 @@ contract RTAProxy {
     uint256 public constant HIGH_VALUE_THRESHOLD = 1000000 * 10**18; // Example: 1M tokens
     uint256 public constant TIME_LOCK_DURATION = 24 hours;
 
+    // Upgrade control
+    bool private _upgradeAuthorized;
+    uint256 private _authorizedUpgradeOperation;
+
+    // Gap for future storage variables (standard practice for upgradeable contracts)
+    uint256[47] private __gap;
+
     // Events
     event SignerAdded(address indexed signer);
     event SignerRemoved(address indexed signer);
@@ -48,6 +60,7 @@ contract RTAProxy {
     event OperationConfirmed(uint256 indexed operationId, address indexed signer);
     event OperationExecuted(uint256 indexed operationId);
     event OperationRevoked(uint256 indexed operationId, address indexed signer);
+    event UpgradeAuthorized(uint256 indexed operationId, address indexed newImplementation);
 
     // Errors
     error NotASigner();
@@ -58,6 +71,7 @@ contract RTAProxy {
     error OperationAlreadyExecuted();
     error TimeLockNotExpired();
     error InvalidSignerCount();
+    error UpgradeNotAuthorized();
 
     // ============ Modifiers ============
 
@@ -80,9 +94,16 @@ contract RTAProxy {
         _;
     }
 
-    // ============ Constructor ============
+    // ============ Initializer (replaces constructor) ============
 
-    constructor(address[] memory _signers, uint256 _requiredSignatures) {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address[] memory _signers, uint256 _requiredSignatures) public initializer {
+        __UUPSUpgradeable_init();
+
         if (_signers.length < _requiredSignatures || _requiredSignatures == 0) {
             revert InvalidSignerCount();
         }
@@ -101,6 +122,41 @@ contract RTAProxy {
         requiredSignatures = _requiredSignatures;
     }
 
+    // ============ UUPS Upgrade Authorization ============
+
+    /**
+     * @notice Authorize contract upgrade
+     * @dev Requires multi-sig approval through submitUpgradeOperation
+     * @param newImplementation Address of the new implementation
+     */
+    function _authorizeUpgrade(address newImplementation) internal override {
+        if (!_upgradeAuthorized) {
+            revert UpgradeNotAuthorized();
+        }
+        _upgradeAuthorized = false;
+        emit UpgradeAuthorized(_authorizedUpgradeOperation, newImplementation);
+    }
+
+    /**
+     * @notice Submit an upgrade operation for multi-sig approval
+     * @param newImplementation The new implementation contract address
+     * @return operationId The ID of the upgrade operation
+     */
+    function submitUpgradeOperation(address newImplementation) external onlySigner returns (uint256 operationId) {
+        require(newImplementation != address(0), "Invalid implementation");
+
+        // Create the upgrade call data
+        bytes memory upgradeData = abi.encodeWithSignature(
+            "upgradeToAndCall(address,bytes)",
+            newImplementation,
+            ""
+        );
+
+        // Submit it as a regular operation targeting this contract
+        operationId = submitOperation(address(this), upgradeData, 0);
+        return operationId;
+    }
+
     // ============ Multi-Sig Operations ============
 
     /**
@@ -114,7 +170,7 @@ contract RTAProxy {
         address target,
         bytes memory data,
         uint256 value
-    ) external onlySigner returns (uint256 operationId) {
+    ) public onlySigner returns (uint256 operationId) {
         operationId = operationCount++;
 
         Operation storage op = operations[operationId];
@@ -264,6 +320,21 @@ contract RTAProxy {
 
         op.executed = true;
 
+        // Special handling for upgrade operations
+        if (op.target == address(this)) {
+            bytes memory data = op.data;
+            bytes4 selector;
+            assembly {
+                selector := mload(add(data, 32))
+            }
+
+            // Check if this is an upgrade call
+            if (selector == bytes4(keccak256("upgradeToAndCall(address,bytes)"))) {
+                _upgradeAuthorized = true;
+                _authorizedUpgradeOperation = operationId;
+            }
+        }
+
         // Execute the operation
         (bool success, bytes memory returnData) = op.target.call{value: op.value}(op.data);
         require(success, string(returnData));
@@ -389,5 +460,13 @@ contract RTAProxy {
         uint256 oldRequired = requiredSignatures;
         requiredSignatures = newRequiredSignatures;
         emit RequiredSignaturesUpdated(oldRequired, newRequiredSignatures);
+    }
+
+    /**
+     * @notice Get the current implementation version
+     * @return string Version identifier
+     */
+    function version() external pure returns (string memory) {
+        return "1.0.0";
     }
 }

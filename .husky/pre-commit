@@ -1,0 +1,14 @@
+echo "🔨 Running pre-commit checks..."
+echo ""
+
+# Compile Solidity contracts
+echo "📦 Compiling contracts with Hardhat..."
+npx hardhat compile || exit 1
+echo "✅ Compilation successful"
+echo ""
+
+# Run test suite
+echo "🧪 Running test suite..."
+npm test || exit 1
+echo ""
+echo "✅ All pre-commit checks passed!"

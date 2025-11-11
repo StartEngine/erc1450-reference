@@ -4,6 +4,25 @@
 
 This repository contains the official reference implementation of ERC-1450, a standard for compliant security tokens controlled by a Registered Transfer Agent (RTA).
 
+### Project Structure
+
+This reference implementation is part of a two-repository system:
+
+1. **Specification Repository**: [StartEngine/ERCs](https://github.com/StartEngine/ERCs)
+   - Fork of [ethereum/ERCs](https://github.com/ethereum/ERCs)
+   - Contains the formal ERC-1450 specification
+   - Location: `/Users/devendergollapally/StartEngineRepositories/ERCs`
+   - Spec file: `ERCS/erc-1450.md`
+   - Our pull request [PR](https://github.com/ethereum/ERCs/pull/1335)
+
+2. **Reference Implementation** (this repository): [StartEngine/erc1450-reference](https://github.com/StartEngine/erc1450-reference)
+   - Solidity smart contracts implementing the spec
+   - Comprehensive test suite
+   - Location: `/Users/devendergollapally/StartEngineRepositories/erc1450-reference`
+   - Contracts: `contracts/ERC1450.sol`, `contracts/RTAProxy.sol`
+
+**Important**: Any changes to the contracts in this repository should be validated against the formal specification in the ERCs repository to ensure compliance.
+
 ## Overview
 
 ERC-1450 enables compliant securities offerings under SEC regulations by providing:
@@ -42,6 +61,37 @@ ERC-1450 enables compliant securities offerings under SEC regulations by providi
 - KYC/AML verification requirements
 - Extended reason codes (0-14, 999) for detailed rejection tracking
 
+## Upgradeability (New!)
+
+This implementation now includes **upgradeable versions** of the contracts using OpenZeppelin's UUPS proxy pattern, allowing critical bug fixes without requiring token holder action.
+
+### Upgradeable Contracts Available
+- `ERC1450Upgradeable.sol` - Upgradeable token implementation
+- `RTAProxyUpgradeable.sol` - Upgradeable multi-sig RTA
+
+### Benefits
+- **Bug Fixes**: Deploy patches without changing contract addresses
+- **No Migration**: Token holders keep the same addresses and balances
+- **Secure**: Upgrades require multi-sig RTA approval
+- **Gas Efficient**: UUPS pattern minimizes overhead
+
+### Deployment Options
+```bash
+# Deploy standard (immutable) contracts
+npx hardhat run scripts/deploy.js --network polygon
+
+# Deploy upgradeable contracts (recommended for production)
+npx hardhat run scripts/deploy-upgradeable.js --network polygon
+```
+
+### Upgrade Process
+```bash
+# Upgrade contracts (requires multi-sig approval)
+npx hardhat run scripts/upgrade.js --network polygon
+```
+
+For detailed upgradeability documentation, see [UPGRADEABILITY.md](./UPGRADEABILITY.md).
+
 ## Architecture
 
 ```
@@ -67,15 +117,61 @@ ERC-1450 enables compliant securities offerings under SEC regulations by providi
 git clone https://github.com/StartEngine/erc1450-reference.git
 cd erc1450-reference
 
-# Install dependencies
+# Install dependencies (also installs git hooks via Husky)
 npm install
 
 # Compile contracts
 npx hardhat compile
 
 # Run tests
-npx hardhat test
+npm test
+
+# Check test coverage
+npx hardhat coverage
+
+# Run security analysis (requires Python + Slither)
+slither . --print human-summary
 ```
+
+**Note**: The `npm install` command automatically sets up git hooks via Husky. These hooks will run `hardhat compile` and `npm test` before each commit to ensure code quality.
+
+## Developer Workflow
+
+For contributors and developers working on this project:
+
+1. **Clone & Setup**
+   ```bash
+   git clone https://github.com/StartEngine/erc1450-reference.git
+   cd erc1450-reference
+   npm install  # Auto-installs Husky pre-commit hooks
+   ```
+
+2. **Compile Contracts**
+   ```bash
+   npx hardhat compile
+   ```
+
+3. **Run Tests**
+   ```bash
+   npm test  # Runs all 341 tests
+   ```
+
+4. **Check Coverage**
+   ```bash
+   npx hardhat coverage  # Current: 86.2% branch coverage
+   ```
+
+5. **Security Analysis** (optional, requires [Slither](https://github.com/crytic/slither))
+   ```bash
+   pip install slither-analyzer
+   slither .
+   ```
+
+6. **Pre-Commit Hooks** (automatic)
+   - Husky automatically runs before each commit:
+     - ✅ Compiles all Solidity contracts
+     - ✅ Runs full test suite (341 tests)
+   - To bypass (not recommended): `git commit --no-verify`
 
 ## Deployment
 
