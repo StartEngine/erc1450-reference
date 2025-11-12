@@ -5,6 +5,10 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
     let ERC1450Upgradeable, token, RTAProxyUpgradeable, rtaProxy;
     let owner, issuer, rta, alice, bob, signer2, signer3, nonBroker;
 
+    // Common regulation constants for testing
+    const REG_US_A = 0x0001; // Reg A
+    const issuanceDate = Math.floor(Date.now() / 1000) - 86400 * 30; // 30 days ago
+
     beforeEach(async function () {
         [owner, issuer, rta, alice, bob, signer2, signer3, nonBroker] = await ethers.getSigners();
 
@@ -89,7 +93,7 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
 
         describe("requestTransferWithFee validations", function () {
             beforeEach(async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
                 await token.connect(rta).setFeeParameters(0, ethers.parseEther("1"), [ethers.ZeroAddress]);
             });
 
@@ -249,7 +253,7 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
             });
 
             it("Should update request status to different states", async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
                 await token.connect(rta).setFeeParameters(0, 0, [ethers.ZeroAddress]);
 
                 const tx = await token.connect(alice).requestTransferWithFee(

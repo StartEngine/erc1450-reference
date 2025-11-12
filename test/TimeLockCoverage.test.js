@@ -3,6 +3,10 @@ const { ethers, upgrades } = require("hardhat");
 const { time } = require("@nomicfoundation/hardhat-network-helpers");
 
 describe("Time-Lock Coverage Tests - Reach 90%+", function () {
+    // Common regulation constants for testing
+    const REG_US_A = 0x0001; // Reg A
+    const issuanceDate = Math.floor(Date.now() / 1000) - 86400 * 30; // 30 days ago
+
     let ERC1450, token;
     let RTAProxy, rtaProxy;
     let ERC1450Upgradeable, tokenUpgradeable;
@@ -45,7 +49,7 @@ describe("Time-Lock Coverage Tests - Reach 90%+", function () {
         await tokenUpgradeable.waitForDeployment();
 
         // Mint tokens to alice for testing
-        const mintData = token.interface.encodeFunctionData("mint", [alice.address, HIGH_VALUE * 2n]);
+        const mintData = token.interface.encodeFunctionData("mint", [alice.address, HIGH_VALUE * 2n, REG_US_A, issuanceDate]);
         const tx1 = await rtaProxy.connect(rta).submitOperation(token.target, mintData, 0);
         const receipt1 = await tx1.wait();
         const opId1 = rtaProxy.interface.parseLog(
@@ -58,7 +62,7 @@ describe("Time-Lock Coverage Tests - Reach 90%+", function () {
         await rtaProxy.connect(signer2).confirmOperation(opId1);
 
         // Mint tokens to alice on upgradeable token
-        const mintDataUpgradeable = tokenUpgradeable.interface.encodeFunctionData("mint", [alice.address, HIGH_VALUE * 2n]);
+        const mintDataUpgradeable = tokenUpgradeable.interface.encodeFunctionData("mint", [alice.address, HIGH_VALUE * 2n, REG_US_A, issuanceDate]);
         const tx2 = await rtaProxyUpgradeable.connect(rta).submitOperation(tokenUpgradeable.target, mintDataUpgradeable, 0);
         const receipt2 = await tx2.wait();
         const opId2 = rtaProxyUpgradeable.interface.parseLog(
@@ -353,10 +357,8 @@ describe("Time-Lock Coverage Tests - Reach 90%+", function () {
 
         it("Should NOT require time-lock for operations other than transferFrom/executeCourtOrder", async function () {
             // Test with mint operation (high value but not subject to time-lock)
-            const mintData = tokenUpgradeable.interface.encodeFunctionData("mint", [
-                bob.address,
-                HIGH_VALUE
-            ]);
+            const mintData = tokenUpgradeable.interface.encodeFunctionData("mint", [bob.address, HIGH_VALUE
+            , REG_US_A, issuanceDate]);
 
             // Mint should NOT require time-lock even for high amounts
             expect(await rtaProxyUpgradeable.requiresTimeLock(mintData)).to.be.false;

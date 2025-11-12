@@ -7,6 +7,10 @@ describe("ERC1450 Security Token", function () {
     let owner, rta, issuer, alice, bob, charlie, broker;
     let signers;
 
+    // Common regulation constants for testing
+    const REG_US_A = 0x0001; // Reg A
+    const issuanceDate = Math.floor(Date.now() / 1000) - 86400 * 30; // 30 days ago
+
     beforeEach(async function () {
         // Get signers
         [owner, rta, issuer, alice, bob, charlie, broker, ...signers] = await ethers.getSigners();
@@ -82,19 +86,19 @@ describe("ERC1450 Security Token", function () {
     describe("RTA Functions", function () {
         describe("Minting", function () {
             it("Should allow RTA to mint tokens", async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
                 expect(await token.balanceOf(alice.address)).to.equal(ethers.parseEther("1000"));
                 expect(await token.totalSupply()).to.equal(ethers.parseEther("1000"));
             });
 
             it("Should revert if non-RTA tries to mint", async function () {
                 await expect(
-                    token.connect(alice).mint(bob.address, 100)
+                    token.connect(alice).mint(bob.address, 100, REG_US_A, issuanceDate)
                 ).to.be.revertedWithCustomError(token, "ERC1450OnlyRTA");
             });
 
             it("Should emit Transfer event on mint", async function () {
-                await expect(token.connect(rta).mint(alice.address, 100))
+                await expect(token.connect(rta).mint(alice.address, 100, REG_US_A, issuanceDate))
                     .to.emit(token, "Transfer")
                     .withArgs(ethers.ZeroAddress, alice.address, 100);
             });
@@ -102,7 +106,7 @@ describe("ERC1450 Security Token", function () {
 
         describe("Burning", function () {
             beforeEach(async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
             });
 
             it("Should allow RTA to burn tokens", async function () {
@@ -120,7 +124,7 @@ describe("ERC1450 Security Token", function () {
 
         describe("TransferFrom", function () {
             beforeEach(async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
             });
 
             it("Should allow RTA to transfer tokens", async function () {
@@ -157,7 +161,7 @@ describe("ERC1450 Security Token", function () {
 
     describe("Transfer Request System", function () {
         beforeEach(async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
 
             // Set up fee parameters (1% fee, accept ETH)
             await token.connect(rta).setFeeParameters(1, 100, [ethers.ZeroAddress]);
@@ -271,7 +275,7 @@ describe("ERC1450 Security Token", function () {
         });
 
         it("Should allow RTA to withdraw fees", async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
 
             // Create request with fee
             const feeAmount = ethers.parseEther("1");
@@ -329,7 +333,7 @@ describe("ERC1450 Security Token", function () {
 
     describe("Court Orders", function () {
         beforeEach(async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
         });
 
         it("Should execute court order even on frozen accounts", async function () {

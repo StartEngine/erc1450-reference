@@ -2,6 +2,9 @@ const { expect } = require("chai");
 const { ethers, upgrades } = require("hardhat");
 
 describe("Upgradeable Contracts Critical Paths - 100% Coverage", function () {
+    // Common regulation constants for testing
+    const REG_US_A = 0x0001; // Reg A
+    const issuanceDate = Math.floor(Date.now() / 1000) - 86400 * 30; // 30 days ago
     let ERC1450Upgradeable, token, rtaProxy;
     let owner, issuer, rta, alice, bob, signer2, signer3, nonSigner;
 
@@ -36,7 +39,7 @@ describe("Upgradeable Contracts Critical Paths - 100% Coverage", function () {
             });
 
             it("Should revert when transferFrom to zero address", async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
 
                 await expect(
                     token.connect(rta).transferFrom(
@@ -48,7 +51,7 @@ describe("Upgradeable Contracts Critical Paths - 100% Coverage", function () {
             });
 
             it("Should revert on insufficient balance in transferFrom", async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("50"));
+                await token.connect(rta).mint(alice.address, ethers.parseEther("50"), REG_US_A, issuanceDate);
 
                 await expect(
                     token.connect(rta).transferFrom(
@@ -61,12 +64,12 @@ describe("Upgradeable Contracts Critical Paths - 100% Coverage", function () {
 
             it("Should revert when minting to zero address", async function () {
                 await expect(
-                    token.connect(rta).mint(ethers.ZeroAddress, ethers.parseEther("100"))
+                    token.connect(rta).mint(ethers.ZeroAddress, ethers.parseEther("100"), REG_US_A, issuanceDate)
                 ).to.be.revertedWithCustomError(token, "ERC20InvalidReceiver");
             });
 
             it("Should revert when executeCourtOrder to zero address", async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
 
                 const documentHash = ethers.keccak256(ethers.toUtf8Bytes("court-order"));
 
@@ -94,7 +97,7 @@ describe("Upgradeable Contracts Critical Paths - 100% Coverage", function () {
             });
 
             it("Should revert when burning more than balance", async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("50"));
+                await token.connect(rta).mint(alice.address, ethers.parseEther("50"), REG_US_A, issuanceDate);
 
                 await expect(
                     token.connect(rta).burnFrom(alice.address, ethers.parseEther("100"))
@@ -102,7 +105,7 @@ describe("Upgradeable Contracts Critical Paths - 100% Coverage", function () {
             });
 
             it("Should revert when processing transfer request with insufficient balance", async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("50"));
+                await token.connect(rta).mint(alice.address, ethers.parseEther("50"), REG_US_A, issuanceDate);
                 await token.connect(rta).setFeeParameters(0, 0, [ethers.ZeroAddress]);
 
                 const tx = await token.connect(alice).requestTransferWithFee(
@@ -226,7 +229,7 @@ describe("Upgradeable Contracts Critical Paths - 100% Coverage", function () {
 
     describe("Additional Branch Coverage", function () {
         it("Should handle frozen account transfers", async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
             await token.connect(rta).setAccountFrozen(alice.address, true);
 
             await expect(
@@ -235,7 +238,7 @@ describe("Upgradeable Contracts Critical Paths - 100% Coverage", function () {
         });
 
         it("Should handle rejection with and without refund", async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
             await token.connect(rta).setFeeParameters(0, ethers.parseEther("1"), [ethers.ZeroAddress]);
 
             // Request with fee

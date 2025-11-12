@@ -2,6 +2,10 @@ const { expect } = require("chai");
 const { ethers, upgrades } = require("hardhat");
 
 describe("Final Branch Coverage - Push to 90%+", function () {
+    // Common regulation constants for testing
+    const REG_US_A = 0x0001; // Reg A
+    const issuanceDate = Math.floor(Date.now() / 1000) - 86400 * 30; // 30 days ago
+
     let ERC1450, token, RTAProxy, rtaProxy;
     let ERC1450Upgradeable, tokenUpgradeable, RTAProxyUpgradeable, rtaProxyUpgradeable;
     let owner, issuer, rta, alice, bob, charlie, signer2, signer3;
@@ -94,10 +98,8 @@ describe("Final Branch Coverage - Push to 90%+", function () {
                 await rtaProxy.connect(signer2).confirmOperation(opId0);
 
                 // Mint tokens to alice
-                const mintData = token.interface.encodeFunctionData("mint", [
-                    alice.address,
-                    ethers.parseEther("1000")
-                ]);
+                const mintData = token.interface.encodeFunctionData("mint", [alice.address, ethers.parseEther("1000")
+                , REG_US_A, issuanceDate]);
                 const tx1 = await rtaProxy.connect(rta).submitOperation(token.target, mintData, 0);
                 const receipt1 = await tx1.wait();
                 const opId1 = rtaProxy.interface.parseLog(
@@ -228,10 +230,8 @@ describe("Final Branch Coverage - Push to 90%+", function () {
                 ).args.operationId;
                 await rtaProxyUpgradeable.connect(signer2).confirmOperation(opId1);
 
-                const mintData = tokenUpgradeable.interface.encodeFunctionData("mint", [
-                    alice.address,
-                    ethers.parseEther("1000")
-                ]);
+                const mintData = tokenUpgradeable.interface.encodeFunctionData("mint", [alice.address, ethers.parseEther("1000")
+                , REG_US_A, issuanceDate]);
                 const tx2 = await rtaProxyUpgradeable.connect(rta).submitOperation(
                     tokenUpgradeable.target,
                     mintData,

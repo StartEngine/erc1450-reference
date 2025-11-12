@@ -2,6 +2,9 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("Transfer Request Replay Attack Test", function () {
+    // Common regulation constants for testing
+    const REG_US_A = 0x0001; // Reg A
+    const issuanceDate = Math.floor(Date.now() / 1000) - 86400 * 30; // 30 days ago
     let ERC1450, token, owner, rta, alice, bob;
 
     beforeEach(async function () {
@@ -11,7 +14,7 @@ describe("Transfer Request Replay Attack Test", function () {
         token = await ERC1450.deploy("Test", "TST", 18, owner.address, rta.address);
         await token.waitForDeployment();
 
-        await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+        await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
         await token.connect(rta).setFeeParameters(0, 0, [ethers.ZeroAddress]);
     });
 

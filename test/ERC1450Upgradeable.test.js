@@ -3,6 +3,10 @@ const { ethers, upgrades } = require("hardhat");
 const { ERC1450RequestStatus } = require("./constants");
 
 describe("ERC1450Upgradeable Security Token", function () {
+    // Common regulation constants for testing
+    const REG_US_A = 0x0001; // Reg A
+    const issuanceDate = Math.floor(Date.now() / 1000) - 86400 * 30; // 30 days ago
+
     let ERC1450Upgradeable, RTAProxyUpgradeable;
     let token, rtaProxy;
     let owner, rta1, rta2, rta3, holder1, holder2, broker1;
@@ -98,10 +102,8 @@ describe("ERC1450Upgradeable Security Token", function () {
             const mintAmount = ethers.parseEther("1000");
 
             // Encode mint function call
-            const mintData = token.interface.encodeFunctionData("mint", [
-                holder1.address,
-                mintAmount
-            ]);
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, mintAmount
+            , REG_US_A, issuanceDate]);
 
             // Submit operation through RTAProxy
             const tx = await rtaProxy.connect(rta1).submitOperation(
@@ -121,10 +123,8 @@ describe("ERC1450Upgradeable Security Token", function () {
         it("Should execute transfers through multi-sig", async function () {
             // First mint some tokens
             const mintAmount = ethers.parseEther("1000");
-            const mintData = token.interface.encodeFunctionData("mint", [
-                holder1.address,
-                mintAmount
-            ]);
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, mintAmount
+            , REG_US_A, issuanceDate]);
 
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
@@ -150,10 +150,8 @@ describe("ERC1450Upgradeable Security Token", function () {
         beforeEach(async function () {
             // Mint tokens to holder1
             const mintAmount = ethers.parseEther("1000");
-            const mintData = token.interface.encodeFunctionData("mint", [
-                holder1.address,
-                mintAmount
-            ]);
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, mintAmount
+            , REG_US_A, issuanceDate]);
 
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
@@ -218,10 +216,8 @@ describe("ERC1450Upgradeable Security Token", function () {
         it("Should maintain balances after upgrade", async function () {
             // Mint tokens first
             const mintAmount = ethers.parseEther("1000");
-            const mintData = token.interface.encodeFunctionData("mint", [
-                holder1.address,
-                mintAmount
-            ]);
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, mintAmount
+            , REG_US_A, issuanceDate]);
 
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
@@ -282,10 +278,8 @@ describe("ERC1450Upgradeable Security Token", function () {
         it("Should execute court orders even on frozen accounts", async function () {
             // Setup: Mint tokens and freeze account
             const mintAmount = ethers.parseEther("1000");
-            const mintData = token.interface.encodeFunctionData("mint", [
-                holder1.address,
-                mintAmount
-            ]);
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, mintAmount
+            , REG_US_A, issuanceDate]);
 
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);

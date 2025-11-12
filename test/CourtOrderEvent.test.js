@@ -7,6 +7,10 @@ describe("Court Order Event Tests", function () {
     let owner, rta1, rta2, rta3, holder1, holder2;
     const documentHash = ethers.encodeBytes32String("COURT-ORDER-2024-001");
 
+    // Common regulation constants for testing
+    const REG_US_A = 0x0001; // Reg A
+    const issuanceDate = Math.floor(Date.now() / 1000) - 86400 * 30; // 30 days ago
+
     beforeEach(async function () {
         [owner, rta1, rta2, rta3, holder1, holder2] = await ethers.getSigners();
 
@@ -28,7 +32,9 @@ describe("Court Order Event Tests", function () {
         // Mint tokens to holder1
         const mintData = token.interface.encodeFunctionData("mint", [
             holder1.address,
-            ethers.parseEther("1000")
+            ethers.parseEther("1000"),
+            REG_US_A,
+            issuanceDate
         ]);
         await rtaProxy.connect(rta1).submitOperation(await token.getAddress(), mintData, 0);
         await rtaProxy.connect(rta2).confirmOperation(0);
@@ -141,7 +147,9 @@ describe("Court Order Event Tests", function () {
             // Mint tokens
             const mintData = tokenUpgradeable.interface.encodeFunctionData("mint", [
                 holder1.address,
-                ethers.parseEther("1000")
+                ethers.parseEther("1000"),
+                REG_US_A,
+                issuanceDate
             ]);
             await rtaProxyUpgradeable.connect(rta1).submitOperation(
                 await tokenUpgradeable.getAddress(),

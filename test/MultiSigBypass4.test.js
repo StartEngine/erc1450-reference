@@ -2,6 +2,10 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("Multi-Sig Confirmation Bypass - 4 Signers Test", function () {
+    // Common regulation constants for testing
+    const REG_US_A = 0x0001; // Reg A
+    const issuanceDate = Math.floor(Date.now() / 1000) - 86400 * 30; // 30 days ago
+
     let RTAProxy, rtaProxy, ERC1450, token, owner, signer1, signer2, signer3, signer4, alice;
 
     beforeEach(async function () {
@@ -25,10 +29,8 @@ describe("Multi-Sig Confirmation Bypass - 4 Signers Test", function () {
         console.log("\n        === Testing Multi-Sig Bypass (4 Signers, Need 3) ===\n");
 
         // Create a mint operation
-        const mintData = token.interface.encodeFunctionData("mint", [
-            alice.address,
-            ethers.parseEther("1000")
-        ]);
+        const mintData = token.interface.encodeFunctionData("mint", [alice.address, ethers.parseEther("1000")
+        , REG_US_A, issuanceDate]);
 
         // Submit operation (auto-confirms from signer1) - 1/3 confirmations
         const tx1 = await rtaProxy.connect(signer1).submitOperation(

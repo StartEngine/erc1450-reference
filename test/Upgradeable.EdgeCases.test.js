@@ -2,6 +2,9 @@ const { expect } = require("chai");
 const { ethers, upgrades } = require("hardhat");
 
 describe("Upgradeable Contracts - Edge Cases & Additional Coverage", function () {
+    // Common regulation constants for testing
+    const REG_US_A = 0x0001; // Reg A
+    const issuanceDate = Math.floor(Date.now() / 1000) - 86400 * 30; // 30 days ago
     let ERC1450Upgradeable, token, rtaProxy;
     let owner, issuer, rta, alice, bob, broker;
     let mockERC20;
@@ -35,7 +38,7 @@ describe("Upgradeable Contracts - Edge Cases & Additional Coverage", function ()
 
     describe("Fee Token Validation", function () {
         it("Should reject transfer request with non-accepted fee token", async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
 
             await token.connect(rta).setFeeParameters(
                 0,
@@ -159,7 +162,7 @@ describe("Upgradeable Contracts - Edge Cases & Additional Coverage", function ()
 
     describe("Transfer Internal Edge Cases", function () {
         it("Should revert on insufficient balance", async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("100"));
+            await token.connect(rta).mint(alice.address, ethers.parseEther("100"), REG_US_A, issuanceDate);
 
             await expect(
                 token.connect(rta).burnFrom(alice.address, ethers.parseEther("200"))
@@ -169,7 +172,7 @@ describe("Upgradeable Contracts - Edge Cases & Additional Coverage", function ()
         it("Should handle zero address validation in internal transfer", async function () {
             // Try to mint to zero address
             await expect(
-                token.connect(rta).mint(ethers.ZeroAddress, ethers.parseEther("100"))
+                token.connect(rta).mint(ethers.ZeroAddress, ethers.parseEther("100"), REG_US_A, issuanceDate)
             ).to.be.revertedWithCustomError(token, "ERC20InvalidReceiver");
         });
     });
@@ -182,7 +185,7 @@ describe("Upgradeable Contracts - Edge Cases & Additional Coverage", function ()
                 [mockERC20.target]
             );
 
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
             await mockERC20.mint(alice.address, ethers.parseEther("10"));
             await mockERC20.connect(alice).approve(token.target, ethers.parseEther("10"));
 
@@ -328,7 +331,7 @@ describe("Upgradeable Contracts - Edge Cases & Additional Coverage", function ()
 
     describe("Court Order Execution", function () {
         it("Should execute court order with event", async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
 
             const documentHash = ethers.keccak256(ethers.toUtf8Bytes("court-order-123"));
             const tx = await token.connect(rta).executeCourtOrder(

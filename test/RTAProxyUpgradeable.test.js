@@ -2,6 +2,10 @@ const { expect } = require("chai");
 const { ethers, upgrades } = require("hardhat");
 
 describe("RTAProxyUpgradeable Multi-Sig", function () {
+    // Common regulation constants for testing
+    const REG_US_A = 0x0001; // Reg A
+    const issuanceDate = Math.floor(Date.now() / 1000) - 86400 * 30; // 30 days ago
+
     let RTAProxyUpgradeable, ERC1450Upgradeable;
     let rtaProxy, token;
     let owner, signer1, signer2, signer3, nonSigner, holder1;
@@ -105,7 +109,7 @@ describe("RTAProxyUpgradeable Multi-Sig", function () {
 
     describe("Operation Submission", function () {
         it("Should allow signer to submit operation", async function () {
-            const data = token.interface.encodeFunctionData("mint", [holder1.address, 1000]);
+            const data = token.interface.encodeFunctionData("mint", [holder1.address, 1000, REG_US_A, issuanceDate]);
 
             await expect(
                 rtaProxy.connect(signer1).submitOperation(tokenAddress, data, 0)
@@ -113,7 +117,7 @@ describe("RTAProxyUpgradeable Multi-Sig", function () {
         });
 
         it("Should auto-confirm from submitter", async function () {
-            const data = token.interface.encodeFunctionData("mint", [holder1.address, 1000]);
+            const data = token.interface.encodeFunctionData("mint", [holder1.address, 1000, REG_US_A, issuanceDate]);
 
             await rtaProxy.connect(signer1).submitOperation(tokenAddress, data, 0);
 
@@ -135,7 +139,7 @@ describe("RTAProxyUpgradeable Multi-Sig", function () {
     describe("Operation Confirmation", function () {
         beforeEach(async function () {
             // Submit an operation
-            const data = token.interface.encodeFunctionData("mint", [holder1.address, 1000]);
+            const data = token.interface.encodeFunctionData("mint", [holder1.address, 1000, REG_US_A, issuanceDate]);
             await rtaProxy.connect(signer1).submitOperation(tokenAddress, data, 0);
         });
 
@@ -175,7 +179,7 @@ describe("RTAProxyUpgradeable Multi-Sig", function () {
 
     describe("Operation Revocation", function () {
         beforeEach(async function () {
-            const data = token.interface.encodeFunctionData("mint", [holder1.address, 1000]);
+            const data = token.interface.encodeFunctionData("mint", [holder1.address, 1000, REG_US_A, issuanceDate]);
             await rtaProxy.connect(signer1).submitOperation(tokenAddress, data, 0);
         });
 
@@ -204,7 +208,7 @@ describe("RTAProxyUpgradeable Multi-Sig", function () {
 
     describe("Manual Execution", function () {
         beforeEach(async function () {
-            const data = token.interface.encodeFunctionData("mint", [holder1.address, 1000]);
+            const data = token.interface.encodeFunctionData("mint", [holder1.address, 1000, REG_US_A, issuanceDate]);
             await rtaProxy.connect(signer1).submitOperation(tokenAddress, data, 0);
         });
 
@@ -275,10 +279,8 @@ describe("RTAProxyUpgradeable Multi-Sig", function () {
     describe("Complex Token Operations", function () {
         it("Should mint tokens through multi-sig", async function () {
             const mintAmount = ethers.parseEther("1000");
-            const data = token.interface.encodeFunctionData("mint", [
-                holder1.address,
-                mintAmount
-            ]);
+            const data = token.interface.encodeFunctionData("mint", [holder1.address, mintAmount
+            , REG_US_A, issuanceDate]);
 
             await rtaProxy.connect(signer1).submitOperation(tokenAddress, data, 0);
             await rtaProxy.connect(signer2).confirmOperation(0);

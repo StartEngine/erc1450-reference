@@ -2,6 +2,9 @@ const { expect } = require("chai");
 const { ethers, upgrades } = require("hardhat");
 
 describe("Deep Branch Coverage - Push to 90%+", function () {
+    // Common regulation constants for testing
+    const REG_US_A = 0x0001; // Reg A
+    const issuanceDate = Math.floor(Date.now() / 1000) - 86400 * 30; // 30 days ago
     let ERC1450, token, ERC1450Upgradeable, tokenUpgradeable;
     let RTAProxy, rtaProxy, RTAProxyUpgradeable, rtaProxyUpgradeable;
     let owner, issuer, rta, alice, bob, carol, signer2, signer3;
@@ -191,7 +194,7 @@ describe("Deep Branch Coverage - Push to 90%+", function () {
 
     describe("ERC1450 - Additional transfer and fee scenarios", function () {
         it("Should handle transfer to self", async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
 
             const balanceBefore = await token.balanceOf(alice.address);
             await token.connect(rta).transferFrom(alice.address, alice.address, ethers.parseEther("100"));
@@ -201,7 +204,7 @@ describe("Deep Branch Coverage - Push to 90%+", function () {
         });
 
         it("Should handle zero amount transfer", async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
 
             await token.connect(rta).transferFrom(alice.address, bob.address, 0);
 
@@ -213,7 +216,7 @@ describe("Deep Branch Coverage - Push to 90%+", function () {
             const feeToken = await MockERC20.deploy("Fee Token", "FEE", 18);
             await feeToken.waitForDeployment();
 
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
             await feeToken.mint(alice.address, ethers.parseEther("100"));
 
             await token.connect(rta).setFeeParameters(0, ethers.parseEther("10"), [feeToken.target]);
@@ -237,7 +240,7 @@ describe("Deep Branch Coverage - Push to 90%+", function () {
             const feeToken = await MockERC20.deploy("Fee Token", "FEE", 18);
             await feeToken.waitForDeployment();
 
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
             await feeToken.mint(alice.address, ethers.parseEther("100"));
 
             // Don't add feeToken to accepted list
@@ -259,7 +262,7 @@ describe("Deep Branch Coverage - Push to 90%+", function () {
             const feeToken = await MockERC20.deploy("Fee Token", "FEE", 18);
             await feeToken.waitForDeployment();
 
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
             await feeToken.mint(alice.address, ethers.parseEther("100"));
 
             await token.connect(rta).setFeeParameters(0, ethers.parseEther("10"), [feeToken.target]);
@@ -281,7 +284,7 @@ describe("Deep Branch Coverage - Push to 90%+", function () {
         });
 
         it("Should handle court order from/to same address", async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
 
             const documentHash = ethers.keccak256(ethers.toUtf8Bytes("self-transfer-court-order"));
 
@@ -309,7 +312,7 @@ describe("Deep Branch Coverage - Push to 90%+", function () {
 
     describe("ERC1450Upgradeable - Additional coverage", function () {
         it("Should handle transfer to self", async function () {
-            await tokenUpgradeable.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+            await tokenUpgradeable.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
 
             const balanceBefore = await tokenUpgradeable.balanceOf(alice.address);
             await tokenUpgradeable.connect(rta).transferFrom(alice.address, alice.address, ethers.parseEther("100"));
@@ -319,7 +322,7 @@ describe("Deep Branch Coverage - Push to 90%+", function () {
         });
 
         it("Should handle zero amount transfer", async function () {
-            await tokenUpgradeable.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+            await tokenUpgradeable.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
             await tokenUpgradeable.connect(rta).transferFrom(alice.address, bob.address, 0);
             expect(await tokenUpgradeable.balanceOf(bob.address)).to.equal(0);
         });
@@ -329,7 +332,7 @@ describe("Deep Branch Coverage - Push to 90%+", function () {
             const feeToken = await MockERC20.deploy("Fee Token", "FEE", 18);
             await feeToken.waitForDeployment();
 
-            await tokenUpgradeable.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+            await tokenUpgradeable.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
             await feeToken.mint(alice.address, ethers.parseEther("100"));
 
             await tokenUpgradeable.connect(rta).setFeeParameters(0, ethers.parseEther("10"), [feeToken.target]);
@@ -353,7 +356,7 @@ describe("Deep Branch Coverage - Push to 90%+", function () {
             const feeToken = await MockERC20.deploy("Fee Token", "FEE", 18);
             await feeToken.waitForDeployment();
 
-            await tokenUpgradeable.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+            await tokenUpgradeable.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
 
             await tokenUpgradeable.connect(rta).setFeeParameters(0, ethers.parseEther("1"), [ethers.ZeroAddress]);
 
@@ -369,7 +372,7 @@ describe("Deep Branch Coverage - Push to 90%+", function () {
         });
 
         it("Should handle court order self-transfer", async function () {
-            await tokenUpgradeable.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+            await tokenUpgradeable.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
 
             const documentHash = ethers.keccak256(ethers.toUtf8Bytes("self-transfer"));
 

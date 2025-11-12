@@ -5,6 +5,10 @@ describe("Branch Coverage Tests - Target 95%+", function () {
     let ERC1450, token, RTAProxy, rtaProxy;
     let owner, issuer, rta, alice, bob, signer2, signer3, nonBroker;
 
+    // Common regulation constants for testing
+    const REG_US_A = 0x0001; // Reg A
+    const issuanceDate = Math.floor(Date.now() / 1000) - 86400 * 30; // 30 days ago
+
     beforeEach(async function () {
         [owner, issuer, rta, alice, bob, signer2, signer3, nonBroker] = await ethers.getSigners();
 
@@ -82,7 +86,7 @@ describe("Branch Coverage Tests - Target 95%+", function () {
 
         describe("requestTransferWithFee validations", function () {
             beforeEach(async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
                 await token.connect(rta).setFeeParameters(0, ethers.parseEther("1"), [ethers.ZeroAddress]);
             });
 
@@ -155,7 +159,7 @@ describe("Branch Coverage Tests - Target 95%+", function () {
 
         describe("Additional uncovered branches", function () {
             it("Should handle broker-initiated transfer request (Line 258 - false branch)", async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
                 await token.connect(rta).setBrokerStatus(bob.address, true);
                 await token.connect(rta).setFeeParameters(0, ethers.parseEther("1"), [ethers.ZeroAddress]);
 
@@ -173,7 +177,7 @@ describe("Branch Coverage Tests - Target 95%+", function () {
             });
 
             it("Should handle zero fee amount (Line 268 - false branch)", async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
                 await token.connect(rta).setFeeParameters(0, 0, [ethers.ZeroAddress]);
 
                 const tx = await token.connect(alice).requestTransferWithFee(
@@ -197,7 +201,7 @@ describe("Branch Coverage Tests - Target 95%+", function () {
                 await feeToken.mint(alice.address, ethers.parseEther("100"));
 
                 // Set up token
-                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
                 await token.connect(rta).setFeeParameters(0, ethers.parseEther("10"), [feeToken.target]);
 
                 // Approve fee payment
@@ -272,7 +276,7 @@ describe("Branch Coverage Tests - Target 95%+", function () {
                     [ethers.ZeroAddress]
                 );
 
-                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
 
                 const fee = await token.getTransferFee(
                     alice.address,
@@ -306,7 +310,7 @@ describe("Branch Coverage Tests - Target 95%+", function () {
 
         describe("withdrawFees validation", function () {
             it("Should handle withdrawal of native token fees", async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
                 await token.connect(rta).setFeeParameters(0, ethers.parseEther("1"), [ethers.ZeroAddress]);
 
                 // Collect some fees
@@ -366,7 +370,7 @@ describe("Branch Coverage Tests - Target 95%+", function () {
 
         describe("updateRequestStatus validation", function () {
             it("Should update request status to UnderReview", async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
                 await token.connect(rta).setFeeParameters(0, 0, [ethers.ZeroAddress]);
 
                 const tx = await token.connect(alice).requestTransferWithFee(
@@ -395,7 +399,7 @@ describe("Branch Coverage Tests - Target 95%+", function () {
             });
 
             it("Should update request status to Expired", async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"));
+                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
                 await token.connect(rta).setFeeParameters(0, 0, [ethers.ZeroAddress]);
 
                 const tx = await token.connect(alice).requestTransferWithFee(

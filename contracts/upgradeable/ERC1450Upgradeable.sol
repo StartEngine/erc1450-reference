@@ -80,8 +80,21 @@ contract ERC1450Upgradeable is
     // Account restrictions
     mapping(address => bool) public frozenAccounts;
 
+    // Regulation tracking storage
+    struct TokenBatch {
+        uint256 amount;
+        uint16 regulationType;
+        uint256 issuanceDate;
+    }
+
+    // Solidity automatically initializes mappings to default values (empty arrays)
+    // slither-disable-start uninitialized-state
+    mapping(address => TokenBatch[]) private _holderBatches;
+    // slither-disable-end uninitialized-state
+    mapping(uint16 => uint256) private _regulationSupply;
+
     // Gap for future storage variables (standard practice for upgradeable contracts)
-    uint256[45] private __gap;
+    uint256[43] private __gap; // Reduced by 2 for new storage variables
 
     // ============ Modifiers ============
 
@@ -201,7 +214,12 @@ contract ERC1450Upgradeable is
         address to,
         uint256 amount
     ) public override(IERC20, IERC1450) onlyTransferAgent notFrozen(from) notFrozen(to) returns (bool) {
+        // Execute balance transfer
         _transfer(from, to, amount);
+
+        // Transfer regulation tracking using FIFO
+        _transferTokensFIFO(from, to, amount);
+
         return true;
     }
 
@@ -247,18 +265,98 @@ contract ERC1450Upgradeable is
         return addr == _transferAgent;
     }
 
-    function mint(address to, uint256 amount) external override onlyTransferAgent returns (bool) {
+    function mint(address to, uint256 amount, uint16 regulationType, uint256 issuanceDate)
+        external override onlyTransferAgent returns (bool) {
         if (to == address(0)) {
             revert ERC20InvalidReceiver(address(0));
         }
+
+        // Validate regulation type
+        require(regulationType != 0, "ERC1450: Invalid regulation type");
+        require(issuanceDate <= block.timestamp, "ERC1450: Future issuance date not allowed");
 
         _totalSupply += amount;
         unchecked {
             _balances[to] += amount;
         }
 
+        // Track regulation details
+        _addTokenBatch(to, amount, regulationType, issuanceDate);
+        _regulationSupply[regulationType] += amount;
+
         emit Transfer(address(0), to, amount);
+        emit TokensMinted(to, amount, regulationType, issuanceDate, block.timestamp);
         return true;
+    }
+
+    function burnFromRegulation(address from, uint256 amount, uint16 regulationType)
+        external override onlyTransferAgent returns (bool) {
+        if (from == address(0)) {
+            revert ERC20InvalidSender(address(0));
+        }
+
+        uint256 fromBalance = _balances[from];
+        if (fromBalance < amount) {
+            revert ERC20InsufficientBalance(from, fromBalance, amount);
+        }
+
+        // Burn tokens of specific regulation type
+        uint256 remainingToBurn = amount;
+        TokenBatch[] storage batches = _holderBatches[from];
+
+        for (uint256 i = 0; i < batches.length && remainingToBurn > 0; i++) {
+            if (batches[i].regulationType == regulationType && batches[i].amount > 0) {
+                uint256 burnFromBatch = batches[i].amount > remainingToBurn ? remainingToBurn : batches[i].amount;
+
+                batches[i].amount -= burnFromBatch;
+                remainingToBurn -= burnFromBatch;
+                _regulationSupply[regulationType] -= burnFromBatch;
+
+                emit TokensBurned(from, burnFromBatch, regulationType, batches[i].issuanceDate);
+            }
+        }
+
+        require(remainingToBurn == 0, "ERC1450: Insufficient tokens of specified regulation");
+
+        unchecked {
+            _balances[from] = fromBalance - amount;
+            _totalSupply -= amount;
+        }
+
+        emit Transfer(from, address(0), amount);
+        return true;
+    }
+
+    function getHolderRegulations(address holder) external view override returns (
+        uint16[] memory regulationTypes,
+        uint256[] memory amounts,
+        uint256[] memory issuanceDates
+    ) {
+        TokenBatch[] memory batches = _holderBatches[holder];
+        uint256 count = 0;
+
+        // Count non-zero batches
+        for (uint256 i = 0; i < batches.length; i++) {
+            if (batches[i].amount > 0) count++;
+        }
+
+        regulationTypes = new uint16[](count);
+        amounts = new uint256[](count);
+        issuanceDates = new uint256[](count);
+
+        uint256 index = 0;
+        for (uint256 i = 0; i < batches.length; i++) {
+            if (batches[i].amount > 0) {
+                regulationTypes[index] = batches[i].regulationType;
+                amounts[index] = batches[i].amount;
+                issuanceDates[index] = batches[i].issuanceDate;
+                index++;
+            }
+        }
+    }
+
+    function getRegulationSupply(uint16 regulationType) external view override returns (uint256) {
+        return _regulationSupply[regulationType];
     }
 
     function burnFrom(address from, uint256 amount) external override onlyTransferAgent returns (bool) {
@@ -270,6 +368,9 @@ contract ERC1450Upgradeable is
         if (fromBalance < amount) {
             revert ERC20InsufficientBalance(from, fromBalance, amount);
         }
+
+        // Burn tokens using FIFO (oldest first)
+        _burnTokensFIFO(from, amount);
 
         unchecked {
             _balances[from] = fromBalance - amount;
@@ -570,5 +671,61 @@ contract ERC1450Upgradeable is
      */
     function version() external pure returns (string memory) {
         return "1.0.0";
+    }
+
+    // ============ Internal Regulation Tracking Functions ============
+
+    function _addTokenBatch(address to, uint256 amount, uint16 regulationType, uint256 issuanceDate) internal {
+        TokenBatch[] storage batches = _holderBatches[to];
+
+        // Try to merge with existing batch of same regulation and date
+        for (uint256 i = 0; i < batches.length; i++) {
+            if (batches[i].regulationType == regulationType && batches[i].issuanceDate == issuanceDate) {
+                batches[i].amount += amount;
+                return;
+            }
+        }
+
+        // Add new batch if no match found
+        batches.push(TokenBatch(amount, regulationType, issuanceDate));
+    }
+
+    function _burnTokensFIFO(address from, uint256 amount) internal {
+        TokenBatch[] storage batches = _holderBatches[from];
+        uint256 remainingToBurn = amount;
+
+        // Sort batches by issuance date (oldest first) for FIFO
+        // Burn from oldest batches first
+        for (uint256 i = 0; i < batches.length && remainingToBurn > 0; i++) {
+            if (batches[i].amount > 0) {
+                uint256 burnFromBatch = batches[i].amount > remainingToBurn ? remainingToBurn : batches[i].amount;
+
+                batches[i].amount -= burnFromBatch;
+                remainingToBurn -= burnFromBatch;
+                _regulationSupply[batches[i].regulationType] -= burnFromBatch;
+
+                emit TokensBurned(from, burnFromBatch, batches[i].regulationType, batches[i].issuanceDate);
+            }
+        }
+    }
+
+    function _transferTokensFIFO(address from, address to, uint256 amount) internal {
+        TokenBatch[] storage fromBatches = _holderBatches[from];
+        uint256 remainingToTransfer = amount;
+
+        // Transfer using FIFO (oldest first)
+        for (uint256 i = 0; i < fromBatches.length && remainingToTransfer > 0; i++) {
+            if (fromBatches[i].amount > 0) {
+                uint256 transferFromBatch = fromBatches[i].amount > remainingToTransfer
+                    ? remainingToTransfer
+                    : fromBatches[i].amount;
+
+                fromBatches[i].amount -= transferFromBatch;
+                remainingToTransfer -= transferFromBatch;
+
+                // Add to recipient's batches
+                _addTokenBatch(to, transferFromBatch, fromBatches[i].regulationType, fromBatches[i].issuanceDate);
+            }
+        }
     }
 }

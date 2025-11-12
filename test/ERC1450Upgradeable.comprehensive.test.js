@@ -2,6 +2,10 @@ const { expect } = require("chai");
 const { ethers, upgrades } = require("hardhat");
 
 describe("ERC1450Upgradeable Comprehensive Tests", function () {
+    // Common regulation constants for testing
+    const REG_US_A = 0x0001; // Reg A
+    const issuanceDate = Math.floor(Date.now() / 1000) - 86400 * 30; // 30 days ago
+
     let ERC1450Upgradeable, RTAProxyUpgradeable;
     let token, rtaProxy;
     let owner, rta1, rta2, rta3, holder1, holder2, broker1, nonRTA, feeRecipient;
@@ -34,10 +38,8 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
     describe("Transfer Request System - Complete Flow", function () {
         beforeEach(async function () {
             // Mint tokens to holder1
-            const mintData = token.interface.encodeFunctionData("mint", [
-                holder1.address,
-                ethers.parseEther("1000")
-            ]);
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseEther("1000")
+            , REG_US_A, issuanceDate]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
         });
@@ -189,10 +191,8 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
 
         it("Should withdraw collected fees", async function () {
             // First collect some fees
-            const mintData = token.interface.encodeFunctionData("mint", [
-                holder1.address,
-                ethers.parseEther("1000")
-            ]);
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseEther("1000")
+            , REG_US_A, issuanceDate]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
 
@@ -266,10 +266,8 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
 
         it("Should allow broker to request transfers on behalf of holders", async function () {
             // Setup: Mint tokens and approve broker
-            const mintData = token.interface.encodeFunctionData("mint", [
-                holder1.address,
-                ethers.parseEther("1000")
-            ]);
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseEther("1000")
+            , REG_US_A, issuanceDate]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
 
@@ -301,10 +299,8 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
     describe("Account Freezing", function () {
         beforeEach(async function () {
             // Mint tokens for testing
-            const mintData = token.interface.encodeFunctionData("mint", [
-                holder1.address,
-                ethers.parseEther("1000")
-            ]);
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseEther("1000")
+            , REG_US_A, issuanceDate]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
         });
@@ -375,14 +371,12 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
         it("Should only allow RTA to mint", async function () {
             // Try direct mint (should fail)
             await expect(
-                token.connect(nonRTA).mint(holder1.address, 1000)
+                token.connect(nonRTA).mint(holder1.address, 1000, REG_US_A, issuanceDate)
             ).to.be.revertedWithCustomError(token, "ERC1450OnlyRTA");
 
             // Mint through RTA
-            const mintData = token.interface.encodeFunctionData("mint", [
-                holder1.address,
-                ethers.parseEther("500")
-            ]);
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseEther("500")
+            , REG_US_A, issuanceDate]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
 
@@ -392,10 +386,8 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
 
         it("Should only allow RTA to burn", async function () {
             // First mint some tokens
-            const mintData = token.interface.encodeFunctionData("mint", [
-                holder1.address,
-                ethers.parseEther("1000")
-            ]);
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseEther("1000")
+            , REG_US_A, issuanceDate]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
 
@@ -418,10 +410,8 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
 
         it("Should revert burning more than balance", async function () {
             // Mint first
-            const mintData = token.interface.encodeFunctionData("mint", [
-                holder1.address,
-                ethers.parseEther("100")
-            ]);
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseEther("100")
+            , REG_US_A, issuanceDate]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
 
@@ -484,10 +474,8 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
 
     describe("Edge Cases and Error Conditions", function () {
         it("Should handle zero amount transfers", async function () {
-            const mintData = token.interface.encodeFunctionData("mint", [
-                holder1.address,
-                ethers.parseEther("100")
-            ]);
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseEther("100")
+            , REG_US_A, issuanceDate]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
 
@@ -512,10 +500,8 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
         });
 
         it("Should reject invalid fee tokens", async function () {
-            const mintData = token.interface.encodeFunctionData("mint", [
-                holder1.address,
-                ethers.parseEther("100")
-            ]);
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseEther("100")
+            , REG_US_A, issuanceDate]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
 
@@ -535,10 +521,8 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
         });
 
         it("Should handle multiple pending requests", async function () {
-            const mintData = token.interface.encodeFunctionData("mint", [
-                holder1.address,
-                ethers.parseEther("1000")
-            ]);
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseEther("1000")
+            , REG_US_A, issuanceDate]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
 

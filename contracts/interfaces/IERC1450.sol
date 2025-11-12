@@ -23,6 +23,36 @@ interface IERC1450 is IERC20, IERC165 {
     event IssuerChanged(address indexed previousIssuer, address indexed newIssuer);
     event TransferAgentUpdated(address indexed previousAgent, address indexed newAgent);
 
+    /**
+     * @notice Emitted when tokens are minted with regulation tracking
+     * @param to Recipient of the minted tokens
+     * @param amount Number of tokens minted
+     * @param regulationType Regulation under which tokens were issued
+     * @param issuanceDate Original share issuance date
+     * @param tokenizationDate When tokenized on blockchain (block.timestamp)
+     */
+    event TokensMinted(
+        address indexed to,
+        uint256 amount,
+        uint16 indexed regulationType,
+        uint256 issuanceDate,
+        uint256 tokenizationDate
+    );
+
+    /**
+     * @notice Emitted when tokens are burned with regulation tracking
+     * @param from Address from which tokens were burned
+     * @param amount Number of tokens burned
+     * @param regulationType Regulation type of burned tokens
+     * @param issuanceDate Original issuance date of burned tokens
+     */
+    event TokensBurned(
+        address indexed from,
+        uint256 amount,
+        uint16 indexed regulationType,
+        uint256 issuanceDate
+    );
+
     // Transfer request events
     event TransferRequested(
         uint256 indexed requestId,
@@ -117,26 +147,60 @@ interface IERC1450 is IERC20, IERC165 {
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
 
     /**
-     * @notice Mint new tokens (RTA only)
+     * @notice Mint new tokens with regulation tracking (RTA only)
      * @param to Recipient address
      * @param amount Number of tokens to mint
+     * @param regulationType Type of regulation under which shares were issued
+     * @param issuanceDate Unix timestamp when shares were originally issued
      * @return bool Success status
      */
-    function mint(address to, uint256 amount) external returns (bool);
+    function mint(address to, uint256 amount, uint16 regulationType, uint256 issuanceDate) external returns (bool);
 
     /**
      * @notice Burn tokens from an account (RTA only)
      * @param from Account to burn from
      * @param amount Number of tokens to burn
      * @return bool Success status
+     * @dev Burns tokens following FIFO order (oldest issuance dates first)
      */
     function burnFrom(address from, uint256 amount) external returns (bool);
+
+    /**
+     * @notice Burn tokens of a specific regulation type (RTA only)
+     * @param from Account to burn from
+     * @param amount Number of tokens to burn
+     * @param regulationType Specific regulation type to burn
+     * @return bool Success status
+     */
+    function burnFromRegulation(address from, uint256 amount, uint16 regulationType) external returns (bool);
 
     /**
      * @notice Get token decimals
      * @return uint8 Number of decimal places
      */
     function decimals() external view returns (uint8);
+
+    // ============ Regulation Tracking ============
+
+    /**
+     * @notice Get regulation information for tokens held by an address
+     * @param holder Address to query
+     * @return regulationTypes Array of regulation types for holder's tokens
+     * @return amounts Array of token amounts per regulation type
+     * @return issuanceDates Array of original issuance dates
+     */
+    function getHolderRegulations(address holder) external view returns (
+        uint16[] memory regulationTypes,
+        uint256[] memory amounts,
+        uint256[] memory issuanceDates
+    );
+
+    /**
+     * @notice Get total tokens minted under a specific regulation
+     * @param regulationType The regulation type to query
+     * @return totalSupply Total tokens minted under this regulation
+     */
+    function getRegulationSupply(uint16 regulationType) external view returns (uint256 totalSupply);
 
     // ============ Introspection ============
 
