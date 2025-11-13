@@ -7,6 +7,10 @@ set -e
 
 echo "Building startengine-erc1450 package..."
 
+# Update loader.py with current contracts
+echo "Updating loader.py CONTRACT_PATHS..."
+python scripts/update_loader.py
+
 # Create data directory structure in package
 echo "Creating package data directory..."
 mkdir -p startengine_erc1450/data/artifacts

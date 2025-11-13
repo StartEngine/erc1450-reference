@@ -57,14 +57,28 @@ if [ "$confirm" != "y" ]; then
     exit 0
 fi
 
+# Validate that loader.py is up to date
+echo ""
+echo "Validating loader.py is up to date..."
+python scripts/update_loader.py
+
+# Check if there are changes
+if git diff --quiet startengine_erc1450/artifacts/loader.py; then
+    echo -e "${GREEN}✓ loader.py is up to date${NC}"
+else
+    echo -e "${YELLOW}⚠ loader.py had outdated CONTRACT_PATHS${NC}"
+    echo -e "${YELLOW}  Auto-updated. Changes will be included in release.${NC}"
+fi
+echo ""
+
 # Update version in __init__.py
 sed -i "" "s/__version__ = \".*\"/__version__ = \"$NEW_VERSION\"/" startengine_erc1450/__init__.py
 
 # Update version in setup.py comment
 sed -i "" "s/# $CURRENT_VERSION -/# $NEW_VERSION -/" setup.py
 
-# Stage changes
-git add startengine_erc1450/__init__.py setup.py
+# Stage changes (including loader.py if it was updated)
+git add startengine_erc1450/__init__.py setup.py startengine_erc1450/artifacts/loader.py
 
 # Commit
 git commit -m "Bump version to $NEW_VERSION"
