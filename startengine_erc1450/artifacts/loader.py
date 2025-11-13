@@ -25,8 +25,9 @@ if not ARTIFACTS_DIR.exists():
 CONTRACT_PATHS = {
     "RTAProxy": "RTAProxy.sol/RTAProxy.json",
     "ERC1450": "ERC1450.sol/ERC1450.json",
+    "RTAProxyUpgradeable": "upgradeable/RTAProxyUpgradeable.sol/RTAProxyUpgradeable.json",
+    "ERC1450Upgradeable": "upgradeable/ERC1450Upgradeable.sol/ERC1450Upgradeable.json",
     "IERC1450": "interfaces/IERC1450.sol/IERC1450.json",
-    "RestrictionMessages": "libraries/RestrictionMessages.sol/RestrictionMessages.json",
 }
 
 
