@@ -40,6 +40,10 @@ contract RTAProxy {
     uint256 public constant HIGH_VALUE_THRESHOLD = 1000000 * 10**18; // Example: 1M tokens
     uint256 public constant TIME_LOCK_DURATION = 24 hours;
 
+    // Internal wallet registry for optimized operations
+    mapping(address => bool) private internalWallets;
+    uint256 public internalWalletCount;
+
     // Events
     event SignerAdded(address indexed signer);
     event SignerRemoved(address indexed signer);
@@ -48,6 +52,10 @@ contract RTAProxy {
     event OperationConfirmed(uint256 indexed operationId, address indexed signer);
     event OperationExecuted(uint256 indexed operationId);
     event OperationRevoked(uint256 indexed operationId, address indexed signer);
+
+    // Internal wallet registry events
+    event InternalWalletAdded(address indexed wallet, uint256 timestamp);
+    event InternalWalletRemoved(address indexed wallet, uint256 timestamp);
 
     // Errors
     error NotASigner();
@@ -200,7 +208,7 @@ contract RTAProxy {
      * @param data The encoded function call to check
      * @return bool True if time-lock is required
      */
-    function requiresTimeLock(bytes memory data) public pure returns (bool) {
+    function requiresTimeLock(bytes memory data) public view returns (bool) {
         // Decode the function selector
         if (data.length < 4) return false;
 
@@ -225,12 +233,21 @@ contract RTAProxy {
 
             if (data.length < 100) return false; // Not enough data
 
+            address toAddress;
             uint256 amount;
             assembly {
+                // Load 'to' address from bytes 36-67 (offset by 32 for length prefix + 36 for position)
+                toAddress := mload(add(data, 68))
                 // Load amount from bytes 68-99 (offset by 32 for length prefix + 68 for position)
                 amount := mload(add(data, 100))
             }
 
+            // No time-lock needed for internal transfers regardless of amount
+            if (internalWallets[toAddress]) {
+                return false;
+            }
+
+            // Time-lock required for high-value external transfers
             return amount >= HIGH_VALUE_THRESHOLD;
         }
 
@@ -390,4 +407,70 @@ contract RTAProxy {
         requiredSignatures = newRequiredSignatures;
         emit RequiredSignaturesUpdated(oldRequired, newRequiredSignatures);
     }
+
+    // ============ Internal Wallet Registry Functions ============
+
+    /**
+     * @notice Add a wallet to the internal registry (no time-lock for transfers to this wallet)
+     * @dev Must be called through multi-sig operation. Used for treasury, operational, and escrow wallets.
+     * @param wallet The wallet address to add to internal registry
+     */
+    function addInternalWallet(address wallet) external {
+        require(msg.sender == address(this), "Must be called through multi-sig");
+        require(wallet != address(0), "Invalid wallet address");
+        require(!internalWallets[wallet], "Wallet already registered");
+
+        internalWallets[wallet] = true;
+        internalWalletCount++;
+
+        emit InternalWalletAdded(wallet, block.timestamp);
+    }
+
+    /**
+     * @notice Remove a wallet from the internal registry
+     * @dev Must be called through multi-sig operation
+     * @param wallet The wallet address to remove from internal registry
+     */
+    function removeInternalWallet(address wallet) external {
+        require(msg.sender == address(this), "Must be called through multi-sig");
+        require(internalWallets[wallet], "Wallet not registered");
+
+        internalWallets[wallet] = false;
+        internalWalletCount--;
+
+        emit InternalWalletRemoved(wallet, block.timestamp);
+    }
+
+    /**
+     * @notice Check if a wallet is registered as internal
+     * @param wallet The wallet address to check
+     * @return bool True if the wallet is registered as internal
+     */
+    function isInternalWallet(address wallet) external view returns (bool) {
+        return internalWallets[wallet];
+    }
+
+    /**
+     * @notice Get the count of registered internal wallets
+     * @return uint256 The number of internal wallets currently registered
+     */
+    function getInternalWalletCount() external view returns (uint256) {
+        return internalWalletCount;
+    }
+
+    // ============ ETH Receive Function ============
+
+    /**
+     * @notice Receive ETH sent directly to the contract
+     * @dev ETH can be used for operations or recovered via multisig operation
+     * Emits ETHReceived event for tracking
+     */
+    receive() external payable {
+        emit ETHReceived(msg.sender, msg.value);
+    }
+
+    /**
+     * @notice Event emitted when ETH is received
+     */
+    event ETHReceived(address indexed from, uint256 amount);
 }

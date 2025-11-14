@@ -613,8 +613,17 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
 
     /**
      * @notice Allow contract to receive ETH
+     * @dev Emits ETHReceived event for tracking
+     * Can be recovered using recoverToken(address(0), amount)
      */
-    receive() external payable {}
+    receive() external payable {
+        emit ETHReceived(msg.sender, msg.value);
+    }
+
+    /**
+     * @notice Event emitted when ETH is received
+     */
+    event ETHReceived(address indexed from, uint256 amount);
 
     /**
      * @notice Emergency function to recover accidentally sent tokens
