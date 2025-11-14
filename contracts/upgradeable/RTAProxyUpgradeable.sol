@@ -469,4 +469,20 @@ contract RTAProxyUpgradeable is Initializable, UUPSUpgradeable {
     function version() external pure returns (string memory) {
         return "1.0.0";
     }
+
+    // ============ ETH Receive Function ============
+
+    /**
+     * @notice Receive ETH sent directly to the contract
+     * @dev ETH can be used for operations or recovered via multisig operation
+     * Emits ETHReceived event for tracking
+     */
+    receive() external payable {
+        emit ETHReceived(msg.sender, msg.value);
+    }
+
+    /**
+     * @notice Event emitted when ETH is received
+     */
+    event ETHReceived(address indexed from, uint256 amount);
 }

@@ -355,7 +355,10 @@ describe("ERC1450 Regulation Tracking", function () {
     });
 
     it("Should reject mint with future issuance date", async function () {
-      const futureDate = Math.floor(Date.now() / 1000) + 86400; // Tomorrow
+      // Get current block timestamp
+      const blockNumber = await ethers.provider.getBlockNumber();
+      const block = await ethers.provider.getBlock(blockNumber);
+      const futureDate = block.timestamp + 86400; // 24 hours in the future
 
       const mintData = erc1450.interface.encodeFunctionData("mint", [
         holder1.address,
@@ -371,6 +374,7 @@ describe("ERC1450 Regulation Tracking", function () {
       );
       await rtaProxy.connect(transferAgent).submitOperation(await erc1450.getAddress(), mintData, 0);
 
+      // This should fail when trying to execute
       let reverted = false;
       try {
         await rtaProxy.connect(signer2).confirmOperation(opId);
