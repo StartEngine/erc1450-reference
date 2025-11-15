@@ -1,1 +1,0 @@
-"""Contract wrapper classes for ERC1450 and RTAProxy."""

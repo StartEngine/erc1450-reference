@@ -439,46 +439,80 @@ For questions and support:
 - Join the discussion on [Ethereum Magicians](https://ethereum-magicians.org/)
 - Contact the StartEngine team
 
-## Python Package 📦
+## npm Package Integration 📦
 
-This repository includes a Python package (`startengine-erc1450`) for easy integration with Python-based applications.
+This repository can be used as an npm package via git dependencies for JavaScript/TypeScript projects. The package provides both basic (immutable) and upgradeable contract implementations.
 
 ### Installation
+
+Add to your `package.json`:
+```json
+{
+  "dependencies": {
+    "erc1450-reference": "git+https://github.com/StartEngine/erc1450-reference.git#v1.4.0"
+  }
+}
+```
+
+Or install directly:
 ```bash
-# Install from GitHub with specific version
-pip install git+https://github.com/StartEngine/erc1450-reference.git@v1.0.0
+npm install git+https://github.com/StartEngine/erc1450-reference.git#v1.4.0
 ```
 
 ### Usage
-```python
-from startengine_erc1450 import get_abi, get_bytecode, RTAProxyContract
 
-# Get contract artifacts
-abi = get_abi("RTAProxy")
-bytecode = get_bytecode("RTAProxy")
+Import contract artifacts in your JavaScript/TypeScript project:
 
-# Use contract wrappers
-rta = RTAProxyContract()
-deployment_data = rta.get_deployment_data(signers=[...], required_signatures=2)
+```javascript
+// Method 1: Import via main index.js (recommended)
+const { ERC1450, RTAProxy, ERC1450Upgradeable, RTAProxyUpgradeable, ERC1967Proxy } = require('erc1450-reference');
+
+// Method 2: Import specific artifacts directly
+const RTAProxyUpgradeable = require('erc1450-reference/artifacts/contracts/upgradeable/RTAProxyUpgradeable.sol/RTAProxyUpgradeable.json');
+const ERC1450Upgradeable = require('erc1450-reference/artifacts/contracts/upgradeable/ERC1450Upgradeable.sol/ERC1450Upgradeable.json');
+
+// Use with ethers.js or web3.js
+const abi = RTAProxyUpgradeable.abi;
+const bytecode = RTAProxyUpgradeable.bytecode;
+
+// Example: Deploy with ethers.js
+const factory = new ethers.ContractFactory(abi, bytecode, signer);
+const contract = await factory.deploy(...args);
 ```
 
-### ⚠️ IMPORTANT: Release Process
+### Available Contracts
 
-**Whenever you update the smart contracts in this reference implementation, you MUST release a new version of the Python package:**
+This package includes both basic and upgradeable versions:
+
+**Basic Contracts (Immutable)**
+- `ERC1450` - Standard ERC1450 token implementation
+- `RTAProxy` - Multi-sig RTA proxy
+
+**Upgradeable Contracts (UUPS Pattern)**
+- `ERC1450Upgradeable` - Upgradeable ERC1450 token
+- `RTAProxyUpgradeable` - Upgradeable multi-sig RTA
+- `ERC1967Proxy` - OpenZeppelin proxy for deployment
+
+**Interfaces & Libraries**
+- `IERC1450` - ERC1450 interface
+- `ERC1450Constants` - Shared constants library
+
+### Release Process
+
+When updating contracts:
 
 1. **Make contract changes** and compile: `npm run compile`
-2. **Run release script**: `./release.sh`
-   - This will prompt for version type (patch/minor/major)
-   - Updates version in `startengine_erc1450/__init__.py`
-   - Creates a git tag (e.g., `v1.0.1`)
-3. **Push the release**:
+2. **Update version** in `package.json` (follow semantic versioning)
+3. **Commit changes**: `git commit -am "Release v1.4.0"`
+4. **Create git tag**: `git tag v1.4.0`
+5. **Push to GitHub**:
    ```bash
    git push origin main
-   git push origin v1.0.1  # Use your new version
+   git push origin v1.4.0
    ```
-4. **Update dependent projects** to use the new version
+6. **Update dependent projects** to use the new version tag in their `package.json`
 
-See [PACKAGE_README.md](PACKAGE_README.md) for detailed package documentation.
+**Note:** No build scripts needed - git tags are the release mechanism.
 
 ## Security & Audit Status
 
