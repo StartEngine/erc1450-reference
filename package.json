@@ -17,7 +17,8 @@
     "node": "hardhat node",
     "deploy": "hardhat run scripts/deploy.js",
     "verify": "hardhat verify",
-    "prepare": "husky"
+    "prepare": "husky",
+    "postinstall": "hardhat compile"
   },
   "repository": {
     "type": "git",
@@ -36,13 +37,15 @@
     "url": "https://github.com/StartEngine/erc1450-reference/issues"
   },
   "homepage": "https://github.com/StartEngine/erc1450-reference#readme",
-  "devDependencies": {
+  "dependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@openzeppelin/contracts": "^5.1.0",
     "@openzeppelin/contracts-upgradeable": "^5.4.0",
     "@openzeppelin/hardhat-upgrades": "^3.9.1",
+    "hardhat": "^2.22.16"
+  },
+  "devDependencies": {
     "dotenv": "^17.2.3",
-    "hardhat": "^2.22.16",
     "husky": "^9.1.7"
   }
 }
