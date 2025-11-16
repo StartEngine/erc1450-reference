@@ -17,8 +17,7 @@
     "node": "hardhat node",
     "deploy": "hardhat run scripts/deploy.js",
     "verify": "hardhat verify",
-    "prepare": "husky",
-    "postinstall": "hardhat compile"
+    "prepare": "husky"
   },
   "repository": {
     "type": "git",
