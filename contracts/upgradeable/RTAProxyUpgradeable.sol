@@ -49,8 +49,12 @@ contract RTAProxyUpgradeable is Initializable, UUPSUpgradeable {
     bool private _upgradeAuthorized;
     uint256 private _authorizedUpgradeOperation;
 
+    // Internal wallet registry
+    mapping(address => bool) public internalWallets;
+    uint256 public internalWalletCount;
+
     // Gap for future storage variables (standard practice for upgradeable contracts)
-    uint256[47] private __gap;
+    uint256[45] private __gap;
 
     // Events
     event SignerAdded(address indexed signer);
@@ -61,6 +65,9 @@ contract RTAProxyUpgradeable is Initializable, UUPSUpgradeable {
     event OperationExecuted(uint256 indexed operationId);
     event OperationRevoked(uint256 indexed operationId, address indexed signer);
     event UpgradeAuthorized(uint256 indexed operationId, address indexed newImplementation);
+    event InternalWalletAdded(address indexed wallet, uint256 timestamp);
+    event InternalWalletRemoved(address indexed wallet, uint256 timestamp);
+    event ETHReceived(address indexed from, uint256 amount);
 
     // Errors
     error NotASigner();
@@ -470,6 +477,56 @@ contract RTAProxyUpgradeable is Initializable, UUPSUpgradeable {
         return "1.0.0";
     }
 
+    // ============ Internal Wallet Registry Functions ============
+
+    /**
+     * @notice Add a wallet to the internal registry (no time-lock for transfers to this wallet)
+     * @dev Must be called through multi-sig operation. Used for treasury, operational, and escrow wallets.
+     * @param wallet The wallet address to add to internal registry
+     */
+    function addInternalWallet(address wallet) external {
+        require(msg.sender == address(this), "Must be called through multi-sig");
+        require(wallet != address(0), "Invalid wallet address");
+        require(!internalWallets[wallet], "Wallet already registered");
+
+        internalWallets[wallet] = true;
+        internalWalletCount++;
+
+        emit InternalWalletAdded(wallet, block.timestamp);
+    }
+
+    /**
+     * @notice Remove a wallet from the internal registry
+     * @dev Must be called through multi-sig operation
+     * @param wallet The wallet address to remove from internal registry
+     */
+    function removeInternalWallet(address wallet) external {
+        require(msg.sender == address(this), "Must be called through multi-sig");
+        require(internalWallets[wallet], "Wallet not registered");
+
+        internalWallets[wallet] = false;
+        internalWalletCount--;
+
+        emit InternalWalletRemoved(wallet, block.timestamp);
+    }
+
+    /**
+     * @notice Check if a wallet is registered as internal
+     * @param wallet The wallet address to check
+     * @return bool True if the wallet is registered as internal
+     */
+    function isInternalWallet(address wallet) external view returns (bool) {
+        return internalWallets[wallet];
+    }
+
+    /**
+     * @notice Get the count of registered internal wallets
+     * @return uint256 The number of internal wallets currently registered
+     */
+    function getInternalWalletCount() external view returns (uint256) {
+        return internalWalletCount;
+    }
+
     // ============ ETH Receive Function ============
 
     /**
@@ -480,9 +537,4 @@ contract RTAProxyUpgradeable is Initializable, UUPSUpgradeable {
     receive() external payable {
         emit ETHReceived(msg.sender, msg.value);
     }
-
-    /**
-     * @notice Event emitted when ETH is received
-     */
-    event ETHReceived(address indexed from, uint256 amount);
 }
