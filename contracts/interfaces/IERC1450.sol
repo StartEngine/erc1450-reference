@@ -137,14 +137,24 @@ interface IERC1450 is IERC20, IERC165 {
     function isTransferAgent(address addr) external view returns (bool);
 
     /**
-     * @notice Execute token transfer (RTA only)
-     * @param from Source address
-     * @param to Destination address
-     * @param amount Number of tokens
-     * @return bool Success status
-     * @dev Only callable by RTA after compliance checks
+     * @notice Transfer tokens - DISABLED for security tokens
+     * @dev Must always revert with ERC1450TransferDisabled()
+     *      Use transferFromBatch() for actual transfers with regulation tracking
      */
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
+
+    /**
+     * @notice Transfer tokens between accounts with regulation tracking (RTA only)
+     * @param from Source address
+     * @param to Destination address
+     * @param amount Number of tokens to transfer
+     * @param regulationType Type of regulation for the transferred tokens
+     * @param issuanceDate Original issuance date of the transferred tokens
+     * @return bool Success status
+     * @dev Only callable by the registered transfer agent
+     *      MUST revert if sender has insufficient tokens of the specified regulation/issuance
+     */
+    function transferFromBatch(address from, address to, uint256 amount, uint16 regulationType, uint256 issuanceDate) external returns (bool);
 
     /**
      * @notice Mint new tokens with regulation tracking (RTA only)
@@ -172,13 +182,24 @@ interface IERC1450 is IERC20, IERC165 {
     ) external returns (bool);
 
     /**
-     * @notice Burn tokens from an account (RTA only)
+     * @notice Burn tokens from an account (RTA only) - Uses RTA's chosen strategy
      * @param from Account to burn from
      * @param amount Number of tokens to burn
      * @return bool Success status
-     * @dev Burns tokens following FIFO order (oldest issuance dates first)
+     * @dev The RTA determines which tokens to burn based on their strategy (FIFO, LIFO, tax optimization, etc.)
      */
     function burnFrom(address from, uint256 amount) external returns (bool);
+
+    /**
+     * @notice Burn tokens from an account with regulation tracking (RTA only)
+     * @param from Address from which to burn tokens
+     * @param amount Number of tokens to burn
+     * @param regulationType Type of regulation for the tokens to burn
+     * @param issuanceDate Original issuance date of the tokens to burn
+     * @return bool Success status
+     * @dev MUST revert if holder has insufficient tokens of the specified regulation/issuance
+     */
+    function burnFromBatch(address from, uint256 amount, uint16 regulationType, uint256 issuanceDate) external returns (bool);
 
     /**
      * @notice Burn tokens of a specific regulation type (RTA only)
@@ -216,6 +237,53 @@ interface IERC1450 is IERC20, IERC165 {
      * @return totalSupply Total tokens minted under this regulation
      */
     function getRegulationSupply(uint16 regulationType) external view returns (uint256 totalSupply);
+
+    /**
+     * @notice Get detailed batch information for a holder's tokens
+     * @param holder Address to query
+     * @return count Number of unique batches the holder has
+     * @return regulationTypes Array of regulation types for each batch
+     * @return issuanceDates Array of issuance dates for each batch
+     * @return amounts Array of token amounts for each batch
+     */
+    function getDetailedBatchInfo(address holder) external view returns (
+        uint256 count,
+        uint16[] memory regulationTypes,
+        uint256[] memory issuanceDates,
+        uint256[] memory amounts
+    );
+
+    /**
+     * @notice Batch transfer tokens between multiple address pairs with regulation tracking (RTA only)
+     * @param froms Array of source addresses
+     * @param tos Array of destination addresses
+     * @param amounts Array of token amounts to transfer
+     * @param regulationTypes Array of regulation types for each transfer
+     * @param issuanceDates Array of issuance dates for each transfer
+     * @return bool Success status
+     */
+    function batchTransferFrom(
+        address[] calldata froms,
+        address[] calldata tos,
+        uint256[] calldata amounts,
+        uint16[] calldata regulationTypes,
+        uint256[] calldata issuanceDates
+    ) external returns (bool);
+
+    /**
+     * @notice Batch burn tokens from multiple addresses with regulation tracking (RTA only)
+     * @param froms Array of addresses from which to burn tokens
+     * @param amounts Array of token amounts to burn from each address
+     * @param regulationTypes Array of regulation types for each burn
+     * @param issuanceDates Array of issuance dates for each burn
+     * @return bool Success status
+     */
+    function batchBurnFrom(
+        address[] calldata froms,
+        uint256[] calldata amounts,
+        uint16[] calldata regulationTypes,
+        uint256[] calldata issuanceDates
+    ) external returns (bool);
 
     // ============ Introspection ============
 

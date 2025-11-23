@@ -206,20 +206,34 @@ contract ERC1450Upgradeable is
     }
 
     /**
-     * @notice Only the RTA can execute transfers
-     * @dev Callable only by the transfer agent after compliance checks
+     * @notice Transfer tokens - DISABLED for security tokens
+     * @dev Always reverts with ERC1450TransferDisabled
      */
     function transferFrom(
         address from,
         address to,
         uint256 amount
-    ) public override(IERC20, IERC1450) onlyTransferAgent notFrozen(from) notFrozen(to) returns (bool) {
-        // Execute balance transfer
-        _transfer(from, to, amount);
+    ) public pure override(IERC20, IERC1450) returns (bool) {
+        revert ERC1450TransferDisabled();
+    }
 
-        // Transfer regulation tracking using FIFO
-        _transferTokensFIFO(from, to, amount);
-
+    /**
+     * @notice Transfer tokens with regulation tracking (RTA only)
+     * @param from Source address
+     * @param to Destination address
+     * @param amount Number of tokens to transfer
+     * @param regulationType Type of regulation for the transferred tokens
+     * @param issuanceDate Original issuance date of the transferred tokens
+     * @dev Callable only by the transfer agent after compliance checks
+     */
+    function transferFromBatch(
+        address from,
+        address to,
+        uint256 amount,
+        uint16 regulationType,
+        uint256 issuanceDate
+    ) public override onlyTransferAgent notFrozen(from) notFrozen(to) returns (bool) {
+        _transferBatch(from, to, amount, regulationType, issuanceDate);
         return true;
     }
 
@@ -377,6 +391,101 @@ contract ERC1450Upgradeable is
         return true;
     }
 
+    /**
+     * @notice Burn tokens from an account with regulation tracking (RTA only)
+     */
+    function burnFromBatch(
+        address from,
+        uint256 amount,
+        uint16 regulationType,
+        uint256 issuanceDate
+    ) external override onlyTransferAgent returns (bool) {
+        if (from == address(0)) {
+            revert ERC20InvalidSender(address(0));
+        }
+
+        // Find and burn from specific batch
+        TokenBatch[] storage batches = _holderBatches[from];
+        bool found = false;
+
+        for (uint256 i = 0; i < batches.length; i++) {
+            if (batches[i].regulationType == regulationType &&
+                batches[i].issuanceDate == issuanceDate) {
+                require(batches[i].amount >= amount, "ERC1450: Insufficient batch balance");
+
+                unchecked {
+                    batches[i].amount -= amount;
+                    _balances[from] -= amount;
+                    _totalSupply -= amount;
+                    _regulationSupply[regulationType] -= amount;
+                }
+
+                // Remove batch if empty
+                if (batches[i].amount == 0) {
+                    batches[i] = batches[batches.length - 1];
+                    batches.pop();
+                }
+
+                found = true;
+                emit TokensBurned(from, amount, regulationType, issuanceDate);
+                emit Transfer(from, address(0), amount);
+                break;
+            }
+        }
+
+        require(found, "ERC1450: Batch not found");
+        return true;
+    }
+
+    /**
+     * @notice Batch transfer tokens between multiple address pairs with regulation tracking
+     */
+    function batchTransferFrom(
+        address[] calldata froms,
+        address[] calldata tos,
+        uint256[] calldata amounts,
+        uint16[] calldata regulationTypes,
+        uint256[] calldata issuanceDates
+    ) external override onlyTransferAgent returns (bool) {
+        require(
+            froms.length == tos.length &&
+            froms.length == amounts.length &&
+            froms.length == regulationTypes.length &&
+            froms.length == issuanceDates.length,
+            "ERC1450: Array length mismatch"
+        );
+
+        for (uint256 i = 0; i < froms.length; i++) {
+            _transferBatch(froms[i], tos[i], amounts[i], regulationTypes[i], issuanceDates[i]);
+        }
+
+        return true;
+    }
+
+    /**
+     * @notice Batch burn tokens from multiple addresses with regulation tracking
+     */
+    function batchBurnFrom(
+        address[] calldata froms,
+        uint256[] calldata amounts,
+        uint16[] calldata regulationTypes,
+        uint256[] calldata issuanceDates
+    ) external override onlyTransferAgent returns (bool) {
+        require(
+            froms.length == amounts.length &&
+            froms.length == regulationTypes.length &&
+            froms.length == issuanceDates.length,
+            "ERC1450: Array length mismatch"
+        );
+
+        for (uint256 i = 0; i < froms.length; i++) {
+            // Reuse burnFromBatch logic
+            this.burnFromBatch(froms[i], amounts[i], regulationTypes[i], issuanceDates[i]);
+        }
+
+        return true;
+    }
+
     function getHolderRegulations(address holder) external view override returns (
         uint16[] memory regulationTypes,
         uint256[] memory amounts,
@@ -407,6 +516,29 @@ contract ERC1450Upgradeable is
 
     function getRegulationSupply(uint16 regulationType) external view override returns (uint256) {
         return _regulationSupply[regulationType];
+    }
+
+    /**
+     * @notice Get detailed batch information for a holder's tokens
+     */
+    function getDetailedBatchInfo(address holder) external view override returns (
+        uint256 count,
+        uint16[] memory regulationTypes,
+        uint256[] memory issuanceDates,
+        uint256[] memory amounts
+    ) {
+        TokenBatch[] memory batches = _holderBatches[holder];
+        count = batches.length;
+
+        regulationTypes = new uint16[](count);
+        issuanceDates = new uint256[](count);
+        amounts = new uint256[](count);
+
+        for (uint256 i = 0; i < count; i++) {
+            regulationTypes[i] = batches[i].regulationType;
+            issuanceDates[i] = batches[i].issuanceDate;
+            amounts[i] = batches[i].amount;
+        }
     }
 
     function burnFrom(address from, uint256 amount) external override onlyTransferAgent returns (bool) {
@@ -675,6 +807,56 @@ contract ERC1450Upgradeable is
         emit Transfer(from, to, amount);
     }
 
+    /**
+     * @dev Transfer specific batch of tokens
+     */
+    function _transferBatch(
+        address from,
+        address to,
+        uint256 amount,
+        uint16 regulationType,
+        uint256 issuanceDate
+    ) internal {
+        if (from == address(0)) {
+            revert ERC20InvalidSender(address(0));
+        }
+        if (to == address(0)) {
+            revert ERC20InvalidReceiver(address(0));
+        }
+
+        // Find and transfer from specific batch
+        TokenBatch[] storage fromBatches = _holderBatches[from];
+        bool found = false;
+
+        for (uint256 i = 0; i < fromBatches.length; i++) {
+            if (fromBatches[i].regulationType == regulationType &&
+                fromBatches[i].issuanceDate == issuanceDate) {
+                require(fromBatches[i].amount >= amount, "ERC1450: Insufficient batch balance");
+
+                unchecked {
+                    fromBatches[i].amount -= amount;
+                    _balances[from] -= amount;
+                    _balances[to] += amount;
+                }
+
+                // Remove batch if empty
+                if (fromBatches[i].amount == 0) {
+                    fromBatches[i] = fromBatches[fromBatches.length - 1];
+                    fromBatches.pop();
+                }
+
+                // Add to recipient's batches
+                _addTokenBatch(to, amount, regulationType, issuanceDate);
+
+                found = true;
+                emit Transfer(from, to, amount);
+                break;
+            }
+        }
+
+        require(found, "ERC1450: Batch not found");
+    }
+
     function _updateRequestStatus(uint256 requestId, RequestStatus newStatus) internal {
         TransferRequest storage request = transferRequests[requestId];
         RequestStatus oldStatus = request.status;
@@ -775,15 +957,15 @@ contract ERC1450Upgradeable is
         // Transfer using FIFO (oldest first)
         for (uint256 i = 0; i < fromBatches.length && remainingToTransfer > 0; i++) {
             if (fromBatches[i].amount > 0) {
-                uint256 transferFromBatch = fromBatches[i].amount > remainingToTransfer
+                uint256 transferAmount = fromBatches[i].amount > remainingToTransfer
                     ? remainingToTransfer
                     : fromBatches[i].amount;
 
-                fromBatches[i].amount -= transferFromBatch;
-                remainingToTransfer -= transferFromBatch;
+                fromBatches[i].amount -= transferAmount;
+                remainingToTransfer -= transferAmount;
 
                 // Add to recipient's batches
-                _addTokenBatch(to, transferFromBatch, fromBatches[i].regulationType, fromBatches[i].issuanceDate);
+                _addTokenBatch(to, transferAmount, fromBatches[i].regulationType, fromBatches[i].issuanceDate);
             }
         }
     }
