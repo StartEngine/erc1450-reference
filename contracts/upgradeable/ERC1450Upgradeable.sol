@@ -289,6 +289,56 @@ contract ERC1450Upgradeable is
         return true;
     }
 
+    function batchMint(
+        address[] calldata recipients,
+        uint256[] calldata amounts,
+        uint16[] calldata regulationTypes,
+        uint256[] calldata issuanceDates
+    ) external override onlyTransferAgent returns (bool) {
+        // Validate array lengths
+        require(
+            recipients.length == amounts.length &&
+            recipients.length == regulationTypes.length &&
+            recipients.length == issuanceDates.length,
+            "ERC1450: Array length mismatch"
+        );
+
+        require(recipients.length > 0, "ERC1450: Empty batch");
+        require(recipients.length <= 100, "ERC1450: Batch too large"); // Reasonable limit to prevent gas issues
+
+        // Process each mint
+        for (uint256 i = 0; i < recipients.length; i++) {
+            address to = recipients[i];
+            uint256 amount = amounts[i];
+            uint16 regulationType = regulationTypes[i];
+            uint256 issuanceDate = issuanceDates[i];
+
+            // Validate each mint (same rules as individual mint)
+            if (to == address(0)) {
+                revert ERC20InvalidReceiver(address(0));
+            }
+
+            require(regulationType != 0, "ERC1450: Invalid regulation type");
+            require(issuanceDate <= block.timestamp, "ERC1450: Future issuance date not allowed");
+
+            // Update balances and supply
+            _totalSupply += amount;
+            unchecked {
+                _balances[to] += amount;
+            }
+
+            // Track regulation details
+            _addTokenBatch(to, amount, regulationType, issuanceDate);
+            _regulationSupply[regulationType] += amount;
+
+            // Emit events for each mint
+            emit Transfer(address(0), to, amount);
+            emit TokensMinted(to, amount, regulationType, issuanceDate, block.timestamp);
+        }
+
+        return true;
+    }
+
     function burnFromRegulation(address from, uint256 amount, uint16 regulationType)
         external override onlyTransferAgent returns (bool) {
         if (from == address(0)) {

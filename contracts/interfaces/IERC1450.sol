@@ -157,6 +157,21 @@ interface IERC1450 is IERC20, IERC165 {
     function mint(address to, uint256 amount, uint16 regulationType, uint256 issuanceDate) external returns (bool);
 
     /**
+     * @notice Batch mint tokens with regulation tracking (RTA only)
+     * @param recipients Array of addresses to receive the minted tokens
+     * @param amounts Array of token amounts to mint for each recipient
+     * @param regulationTypes Array of regulation types for each mint
+     * @param issuanceDates Array of issuance timestamps for each mint
+     * @return bool Success status
+     */
+    function batchMint(
+        address[] calldata recipients,
+        uint256[] calldata amounts,
+        uint16[] calldata regulationTypes,
+        uint256[] calldata issuanceDates
+    ) external returns (bool);
+
+    /**
      * @notice Burn tokens from an account (RTA only)
      * @param from Account to burn from
      * @param amount Number of tokens to burn
