@@ -1,6 +1,6 @@
 {
   "name": "erc1450-reference",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "Official reference implementation of the ERC-1450 RTA-Controlled Security Token Standard.",
   "main": "index.js",
   "files": [
