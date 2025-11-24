@@ -368,19 +368,20 @@ interface IERC1450 is IERC20, IERC165 {
     function setBrokerStatus(address broker, bool approved) external;
 
     /**
-     * @notice Check if address is approved broker
+     * @notice Check if address is registered broker
      * @param broker Address to check
-     * @return bool True if approved broker
+     * @return bool True if registered broker
      */
-    function isBroker(address broker) external view returns (bool);
+    function isRegisteredBroker(address broker) external view returns (bool);
 
     // ============ Request Lifecycle ============
 
     /**
      * @notice Process transfer request (RTA only)
      * @param requestId Request to process
+     * @param approved True to approve and execute, false to reject
      */
-    function processTransferRequest(uint256 requestId) external;
+    function processTransferRequest(uint256 requestId, bool approved) external;
 
     /**
      * @notice Reject transfer request (RTA only)

@@ -121,7 +121,7 @@ describe("Final Coverage Push - Reach 80%", function () {
             );
 
             // Process the request
-            const processData = token.interface.encodeFunctionData("processTransferRequest", [1]);
+            const processData = token.interface.encodeFunctionData("processTransferRequest", [1, true]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, processData, [rta1, rta2]);
 
             expect(await token.balanceOf(carol.address)).to.equal(ethers.parseEther("200"));

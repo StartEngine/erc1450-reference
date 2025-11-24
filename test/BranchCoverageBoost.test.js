@@ -84,7 +84,7 @@ describe("Branch Coverage Boost - Target 80%", function () {
             );
 
             // Process request
-            const processData = token.interface.encodeFunctionData("processTransferRequest", [1]);
+            const processData = token.interface.encodeFunctionData("processTransferRequest", [1, true]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, processData, [rta1, rta2]);
 
             // Withdraw fees (testing fee withdrawal path)
@@ -128,7 +128,7 @@ describe("Branch Coverage Boost - Target 80%", function () {
             );
 
             // Process
-            const processData = token.interface.encodeFunctionData("processTransferRequest", [1]);
+            const processData = token.interface.encodeFunctionData("processTransferRequest", [1, true]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, processData, [rta1, rta2]);
 
             // Withdraw ERC20 fees
@@ -295,7 +295,7 @@ describe("Branch Coverage Boost - Target 80%", function () {
             );
 
             // Process first request
-            const processData1 = tokenUpgradeable.interface.encodeFunctionData("processTransferRequest", [1]);
+            const processData1 = tokenUpgradeable.interface.encodeFunctionData("processTransferRequest", [1, true]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, processData1, [rta1, rta2]);
 
             // Reject second request (reasonCode: 1 = generic rejection)

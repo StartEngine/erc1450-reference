@@ -55,7 +55,7 @@ describe("ERC1450 Security Token", function () {
             expect(await token.supportsInterface("0xaf175dee")).to.be.true;
 
             // Check IERC20 interface
-            expect(await token.supportsInterface("0x36372b07")).to.be.true;
+            expect(await token.supportsInterface("0x36372b07")).to.be.false;
 
             // Check IERC20Metadata interface
             expect(await token.supportsInterface("0xa219a025")).to.be.true;
@@ -217,7 +217,7 @@ describe("ERC1450 Security Token", function () {
             );
 
             // Process request
-            await expect(token.connect(rta).processTransferRequest(1))
+            await expect(token.connect(rta).processTransferRequest(1, true))
                 .to.emit(token, "TransferExecuted")
                 .withArgs(1, alice.address, bob.address, amount);
 
@@ -309,14 +309,14 @@ describe("ERC1450 Security Token", function () {
                 .to.emit(token, "BrokerStatusUpdated")
                 .withArgs(broker.address, true, rta.address);
 
-            expect(await token.isBroker(broker.address)).to.be.true;
+            expect(await token.isRegisteredBroker(broker.address)).to.be.true;
         });
 
         it("Should allow RTA to revoke broker status", async function () {
             await token.connect(rta).setBrokerStatus(broker.address, true);
             await token.connect(rta).setBrokerStatus(broker.address, false);
 
-            expect(await token.isBroker(broker.address)).to.be.false;
+            expect(await token.isRegisteredBroker(broker.address)).to.be.false;
         });
     });
 

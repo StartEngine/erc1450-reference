@@ -619,7 +619,7 @@ contract ERC1450Upgradeable is
         return requestId;
     }
 
-    function processTransferRequest(uint256 requestId) external override onlyTransferAgent {
+    function processTransferRequest(uint256 requestId, bool approved) external override onlyTransferAgent {
         TransferRequest storage request = transferRequests[requestId];
 
         // Prevent replay attacks - reject already finalized requests
@@ -628,18 +628,25 @@ contract ERC1450Upgradeable is
             "ERC1450: Request already finalized"
         );
 
-        if (request.status != RequestStatus.Approved) {
-            // Update status to approved first
-            _updateRequestStatus(requestId, RequestStatus.Approved);
+        if (approved) {
+            // APPROVE: Update status and execute transfer
+            if (request.status != RequestStatus.Approved) {
+                _updateRequestStatus(requestId, RequestStatus.Approved);
+            }
+
+            // Execute the transfer
+            _transfer(request.from, request.to, request.amount);
+
+            // Update status to executed
+            _updateRequestStatus(requestId, RequestStatus.Executed);
+
+            emit TransferExecuted(requestId, request.from, request.to, request.amount);
+        } else {
+            // REJECT: Update status to rejected (no fee refund in this simplified path)
+            _updateRequestStatus(requestId, RequestStatus.Rejected);
+
+            emit TransferRejected(requestId, 0, false);
         }
-
-        // Execute the transfer
-        _transfer(request.from, request.to, request.amount);
-
-        // Update status to executed
-        _updateRequestStatus(requestId, RequestStatus.Executed);
-
-        emit TransferExecuted(requestId, request.from, request.to, request.amount);
     }
 
     function rejectTransferRequest(
@@ -741,7 +748,7 @@ contract ERC1450Upgradeable is
         emit BrokerStatusUpdated(broker, approved, msg.sender);
     }
 
-    function isBroker(address broker) external view override returns (bool) {
+    function isRegisteredBroker(address broker) external view override returns (bool) {
         return approvedBrokers[broker];
     }
 
@@ -779,7 +786,8 @@ contract ERC1450Upgradeable is
     function supportsInterface(bytes4 interfaceId) public view override(ERC165Upgradeable, IERC165) returns (bool) {
         return
             interfaceId == 0xaf175dee || // IERC1450
-            interfaceId == type(IERC20).interfaceId ||
+            // Note: We do NOT report ERC-20 support to prevent wallets from assuming
+            // standard transfer() behavior works. ERC-1450 tokens disable direct transfers.
             interfaceId == type(IERC20Metadata).interfaceId ||
             super.supportsInterface(interfaceId);
     }

@@ -403,7 +403,7 @@ describe("Deep Branch Coverage - Push to 90%+", function () {
             // ERC1450
             expect(await tokenUpgradeable.supportsInterface("0xaf175dee")).to.be.true;
             // ERC20 (returns true for compatibility)
-            expect(await tokenUpgradeable.supportsInterface("0x36372b07")).to.be.true;
+            expect(await tokenUpgradeable.supportsInterface("0x36372b07")).to.be.false;
             // Random interface
             expect(await tokenUpgradeable.supportsInterface("0x12345678")).to.be.false;
         });

@@ -155,10 +155,10 @@ describe("Exact 80% - Targeted Branch Coverage", function () {
             }
 
             // Process some, reject some with refund, reject some without
-            const process1 = token.interface.encodeFunctionData("processTransferRequest", [1]);
+            const process1 = token.interface.encodeFunctionData("processTransferRequest", [1, true]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, process1, [rta1, rta2]);
 
-            const process2 = token.interface.encodeFunctionData("processTransferRequest", [2]);
+            const process2 = token.interface.encodeFunctionData("processTransferRequest", [2, true]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, process2, [rta1, rta2]);
 
             const reject3 = token.interface.encodeFunctionData("rejectTransferRequest", [3, 1, true]);
@@ -241,7 +241,7 @@ describe("Exact 80% - Targeted Branch Coverage", function () {
             }
 
             // Mix of operations
-            const process1 = tokenUpgradeable.interface.encodeFunctionData("processTransferRequest", [1]);
+            const process1 = tokenUpgradeable.interface.encodeFunctionData("processTransferRequest", [1, true]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, process1, [rta1, rta2]);
 
             const reject2 = tokenUpgradeable.interface.encodeFunctionData("rejectTransferRequest", [2, 1, true]);
@@ -253,7 +253,7 @@ describe("Exact 80% - Targeted Branch Coverage", function () {
             const updateStatus4 = tokenUpgradeable.interface.encodeFunctionData("updateRequestStatus", [4, 2]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, updateStatus4, [rta1, rta2]);
 
-            const process4 = tokenUpgradeable.interface.encodeFunctionData("processTransferRequest", [4]);
+            const process4 = tokenUpgradeable.interface.encodeFunctionData("processTransferRequest", [4, true]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, process4, [rta1, rta2]);
         });
 

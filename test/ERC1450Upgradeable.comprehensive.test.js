@@ -69,7 +69,7 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
             expect(request.status).to.equal(0); // Requested (first enum value)
 
             // Process the request
-            const processData = token.interface.encodeFunctionData("processTransferRequest", [1]);
+            const processData = token.interface.encodeFunctionData("processTransferRequest", [1, true]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, processData, 0);
 
             await expect(rtaProxy.connect(rta2).confirmOperation(1))
@@ -237,7 +237,7 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
     describe("Broker Management", function () {
         it("Should approve and revoke broker status", async function () {
             // Initially not a broker
-            expect(await token.isBroker(broker1.address)).to.be.false;
+            expect(await token.isRegisteredBroker(broker1.address)).to.be.false;
 
             // Approve broker
             const approveData = token.interface.encodeFunctionData("setBrokerStatus", [
@@ -250,7 +250,7 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
                 .to.emit(token, "BrokerStatusUpdated")
                 .withArgs(broker1.address, true, rtaProxyAddress);
 
-            expect(await token.isBroker(broker1.address)).to.be.true;
+            expect(await token.isRegisteredBroker(broker1.address)).to.be.true;
 
             // Revoke broker
             const revokeData = token.interface.encodeFunctionData("setBrokerStatus", [
@@ -261,7 +261,7 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, revokeData, 0);
             await rtaProxy.connect(rta2).confirmOperation(1);
 
-            expect(await token.isBroker(broker1.address)).to.be.false;
+            expect(await token.isRegisteredBroker(broker1.address)).to.be.false;
         });
 
         it("Should allow broker to request transfers on behalf of holders", async function () {
@@ -464,7 +464,7 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
             // ERC165
             expect(await token.supportsInterface("0x01ffc9a7")).to.be.true;
             // ERC20
-            expect(await token.supportsInterface("0x36372b07")).to.be.true;
+            expect(await token.supportsInterface("0x36372b07")).to.be.false;
             // ERC20Metadata
             expect(await token.supportsInterface("0xa219a025")).to.be.true;
             // IERC1450
@@ -490,7 +490,7 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
             );
 
             // Process it
-            const processData = token.interface.encodeFunctionData("processTransferRequest", [1]);
+            const processData = token.interface.encodeFunctionData("processTransferRequest", [1, true]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, processData, 0);
             await rtaProxy.connect(rta2).confirmOperation(1);
 
@@ -557,7 +557,7 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
             expect(requestIds.length).to.equal(3);
 
             // Process middle request (second one)
-            const processData = token.interface.encodeFunctionData("processTransferRequest", [requestIds[1]]);
+            const processData = token.interface.encodeFunctionData("processTransferRequest", [requestIds[1], true]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, processData, 0);
             await rtaProxy.connect(rta2).confirmOperation(1);
 

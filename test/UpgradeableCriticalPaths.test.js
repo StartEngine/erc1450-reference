@@ -133,7 +133,7 @@ describe("Upgradeable Contracts Critical Paths - 100% Coverage", function () {
                 const requestId = token.interface.parseLog(event).args.requestId;
 
                 await expect(
-                    token.connect(rta).processTransferRequest(requestId)
+                    token.connect(rta).processTransferRequest(requestId, true)
                 ).to.be.revertedWithCustomError(token, "ERC20InsufficientBalance");
             });
         });

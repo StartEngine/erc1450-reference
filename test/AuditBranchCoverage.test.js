@@ -87,14 +87,14 @@ describe("Audit Branch Coverage - Target 80%+", function () {
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, setBrokerData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
 
-            expect(await token.isBroker(alice.address)).to.be.true;
+            expect(await token.isRegisteredBroker(alice.address)).to.be.true;
 
             // Remove broker status
             const removeBrokerData = token.interface.encodeFunctionData("setBrokerStatus", [alice.address, false]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, removeBrokerData, 0);
             await rtaProxy.connect(rta2).confirmOperation(1);
 
-            expect(await token.isBroker(alice.address)).to.be.false;
+            expect(await token.isRegisteredBroker(alice.address)).to.be.false;
         });
 
         it("Should test setAccountFrozen with true and false", async function () {
@@ -220,7 +220,7 @@ describe("Audit Branch Coverage - Target 80%+", function () {
             );
 
             // Process first request
-            const processData = token.interface.encodeFunctionData("processTransferRequest", [1]);
+            const processData = token.interface.encodeFunctionData("processTransferRequest", [1, true]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, processData, 0);
             await rtaProxy.connect(rta2).confirmOperation(2);
 
@@ -254,7 +254,7 @@ describe("Audit Branch Coverage - Target 80%+", function () {
                 { value: ethers.parseEther("0.1") }
             );
 
-            const processData = token.interface.encodeFunctionData("processTransferRequest", [1]);
+            const processData = token.interface.encodeFunctionData("processTransferRequest", [1, true]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, processData, 0);
             await rtaProxy.connect(rta2).confirmOperation(2);
 

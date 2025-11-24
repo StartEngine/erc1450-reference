@@ -147,7 +147,7 @@ describe("Coverage Boost Tests", function () {
             );
 
             // Process request
-            const processData = token.interface.encodeFunctionData("processTransferRequest", [1]);
+            const processData = token.interface.encodeFunctionData("processTransferRequest", [1, true]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, processData, [rta1, rta2]);
 
             expect(await token.balanceOf(bob.address)).to.equal(ethers.parseEther("50"));
@@ -178,7 +178,7 @@ describe("Coverage Boost Tests", function () {
             );
 
             // Process the request directly
-            const processData = token.interface.encodeFunctionData("processTransferRequest", [1]);
+            const processData = token.interface.encodeFunctionData("processTransferRequest", [1, true]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, processData, [rta1, rta2]);
 
             // Verify transfer completed

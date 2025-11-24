@@ -178,7 +178,7 @@ describe("Final Branch Push - Reach 80%", function () {
             );
 
             // Process the request
-            const processData = token.interface.encodeFunctionData("processTransferRequest", [1]);
+            const processData = token.interface.encodeFunctionData("processTransferRequest", [1, true]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, processData, 0);
             await rtaProxy.connect(rta2).confirmOperation(3);
 
@@ -252,7 +252,7 @@ describe("Final Branch Push - Reach 80%", function () {
             await rtaProxyUpgradeable.connect(rta2).confirmOperation(3);
 
             // Process the third one
-            const processData = tokenUpgradeable.interface.encodeFunctionData("processTransferRequest", [3]);
+            const processData = tokenUpgradeable.interface.encodeFunctionData("processTransferRequest", [3, true]);
             await rtaProxyUpgradeable.connect(rta1).submitOperation(tokenUpgradeableAddress, processData, 0);
             await rtaProxyUpgradeable.connect(rta2).confirmOperation(4);
 

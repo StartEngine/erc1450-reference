@@ -124,9 +124,9 @@ describe("Upgradeable Contracts - Edge Cases & Additional Coverage", function ()
             expect(await token.supportsInterface("0xaf175dee")).to.be.true;
         });
 
-        it("Should support ERC20 interface", async function () {
+        it("Should NOT support ERC20 interface (per spec)", async function () {
             const ERC20InterfaceId = "0x36372b07";
-            expect(await token.supportsInterface(ERC20InterfaceId)).to.be.true;
+            expect(await token.supportsInterface(ERC20InterfaceId)).to.be.false;
         });
 
         it("Should support ERC165 interface", async function () {
@@ -151,12 +151,12 @@ describe("Upgradeable Contracts - Edge Cases & Additional Coverage", function ()
         });
 
         it("Should return false for non-broker", async function () {
-            expect(await token.isBroker(broker.address)).to.be.false;
+            expect(await token.isRegisteredBroker(broker.address)).to.be.false;
         });
 
         it("Should return true for approved broker", async function () {
             await token.connect(rta).setBrokerStatus(broker.address, true);
-            expect(await token.isBroker(broker.address)).to.be.true;
+            expect(await token.isRegisteredBroker(broker.address)).to.be.true;
         });
     });
 

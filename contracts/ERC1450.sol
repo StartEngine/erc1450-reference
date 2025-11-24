@@ -89,12 +89,13 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
 
     // Common US regulation types (examples, not enforced on-chain)
     uint16 public constant REG_US_S1 = 0x0001;           // S-1 Registration (IPO)
-    uint16 public constant REG_US_A_TIER_1 = 0x0004;     // Regulation A Tier I
-    uint16 public constant REG_US_A_TIER_2 = 0x0005;     // Regulation A Tier II
-    uint16 public constant REG_US_CF = 0x0006;           // Regulation Crowdfunding
-    uint16 public constant REG_US_D_506B = 0x0007;       // Regulation D 506(b)
-    uint16 public constant REG_US_D_506C = 0x0008;       // Regulation D 506(c)
-    uint16 public constant REG_US_S = 0x0009;            // Regulation S
+    uint16 public constant REG_US_D_504 = 0x0002;        // Regulation D Rule 504 ($10M max)
+    uint16 public constant REG_US_A_TIER_1 = 0x0004;     // Regulation A Tier I ($20M max)
+    uint16 public constant REG_US_A_TIER_2 = 0x0005;     // Regulation A Tier II ($75M max)
+    uint16 public constant REG_US_CF = 0x0006;           // Regulation Crowdfunding ($5M max)
+    uint16 public constant REG_US_D_506B = 0x0007;       // Regulation D 506(b) (no general solicitation)
+    uint16 public constant REG_US_D_506C = 0x0008;       // Regulation D 506(c) (accredited only)
+    uint16 public constant REG_US_S = 0x0009;            // Regulation S (offshore offerings)
 
     // ============ Modifiers ============
 
@@ -597,7 +598,7 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
         return requestId;
     }
 
-    function processTransferRequest(uint256 requestId) external override onlyTransferAgent {
+    function processTransferRequest(uint256 requestId, bool approved) external override onlyTransferAgent {
         TransferRequest storage request = transferRequests[requestId];
 
         // Prevent replay attacks - reject already finalized requests
@@ -606,18 +607,25 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
             "ERC1450: Request already finalized"
         );
 
-        if (request.status != RequestStatus.Approved) {
-            // Update status to approved first
-            _updateRequestStatus(requestId, RequestStatus.Approved);
+        if (approved) {
+            // APPROVE: Update status and execute transfer
+            if (request.status != RequestStatus.Approved) {
+                _updateRequestStatus(requestId, RequestStatus.Approved);
+            }
+
+            // Execute the transfer
+            _transfer(request.from, request.to, request.amount);
+
+            // Update status to executed
+            _updateRequestStatus(requestId, RequestStatus.Executed);
+
+            emit TransferExecuted(requestId, request.from, request.to, request.amount);
+        } else {
+            // REJECT: Update status to rejected (no fee refund in this simplified path)
+            _updateRequestStatus(requestId, RequestStatus.Rejected);
+
+            emit TransferRejected(requestId, 0, false);
         }
-
-        // Execute the transfer
-        _transfer(request.from, request.to, request.amount);
-
-        // Update status to executed
-        _updateRequestStatus(requestId, RequestStatus.Executed);
-
-        emit TransferExecuted(requestId, request.from, request.to, request.amount);
     }
 
     function rejectTransferRequest(
@@ -723,7 +731,7 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
         emit BrokerStatusUpdated(broker, approved, msg.sender);
     }
 
-    function isBroker(address broker) external view override returns (bool) {
+    function isRegisteredBroker(address broker) external view override returns (bool) {
         return approvedBrokers[broker];
     }
 
@@ -761,7 +769,8 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
     function supportsInterface(bytes4 interfaceId) public view override(ERC165, IERC165) returns (bool) {
         return
             interfaceId == 0xaf175dee || // IERC1450
-            interfaceId == type(IERC20).interfaceId ||
+            // Note: We do NOT report ERC-20 support to prevent wallets from assuming
+            // standard transfer() behavior works. ERC-1450 tokens disable direct transfers.
             interfaceId == type(IERC20Metadata).interfaceId ||
             super.supportsInterface(interfaceId);
     }

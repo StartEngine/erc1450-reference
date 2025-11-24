@@ -261,7 +261,7 @@ describe("Upgradeable Contract Focus - Final 1.5%", function () {
             // Process/reject/update in various patterns
             for (let i = 1; i <= 15; i++) {
                 if (i % 3 === 0) {
-                    const processData = tokenUpgradeable.interface.encodeFunctionData("processTransferRequest", [i]);
+                    const processData = tokenUpgradeable.interface.encodeFunctionData("processTransferRequest", [i, true]);
                     await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, processData, [rta1, rta2]);
                 } else if (i % 3 === 1) {
                     const rejectData = tokenUpgradeable.interface.encodeFunctionData("rejectTransferRequest", [i, 1, true]);

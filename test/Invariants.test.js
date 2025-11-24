@@ -284,7 +284,7 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
             expect(request.status).to.equal(0); // Pending
 
             // Process -> Approved -> Executed
-            await token.connect(rta).processTransferRequest(requestId);
+            await token.connect(rta).processTransferRequest(requestId, true);
             const processedRequest = await token.transferRequests(requestId);
             expect(processedRequest.status).to.equal(4); // Executed
         });
@@ -321,7 +321,7 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
             // Try to process rejected request - should fail (security fix)
             // Rejected requests are finalized and cannot be re-processed
             await expect(
-                token.connect(rta).processTransferRequest(requestId)
+                token.connect(rta).processTransferRequest(requestId, true)
             ).to.be.revertedWith("ERC1450: Request already finalized");
 
             // Verify status remains rejected
@@ -336,7 +336,7 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
             expect(await token.supportsInterface("0xaf175dee")).to.be.true;
 
             // ERC20
-            expect(await token.supportsInterface("0x36372b07")).to.be.true;
+            expect(await token.supportsInterface("0x36372b07")).to.be.false;
 
             // ERC165
             expect(await token.supportsInterface("0x01ffc9a7")).to.be.true;

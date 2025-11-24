@@ -363,7 +363,7 @@ describe("RTAProxy Multi-Sig", function () {
             );
 
             // Process through RTAProxy
-            const processData = token.interface.encodeFunctionData("processTransferRequest", [1]);
+            const processData = token.interface.encodeFunctionData("processTransferRequest", [1, true]);
 
             await rtaProxy.connect(signer1).submitOperation(token.target, processData, 0);
             await rtaProxy.connect(signer2).confirmOperation(1);
@@ -395,7 +395,7 @@ describe("RTAProxy Multi-Sig", function () {
             await rtaProxy.connect(signer1).submitOperation(token.target, approveData, 0);
             await rtaProxy.connect(signer2).confirmOperation(1);
 
-            expect(await token.isBroker(signer3.address)).to.be.true;
+            expect(await token.isRegisteredBroker(signer3.address)).to.be.true;
         });
     });
 

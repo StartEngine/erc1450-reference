@@ -174,7 +174,7 @@ describe("ERC1450Upgradeable Security Token", function () {
             );
 
             // Process request through multi-sig
-            const processData = token.interface.encodeFunctionData("processTransferRequest", [1]);
+            const processData = token.interface.encodeFunctionData("processTransferRequest", [1, true]);
 
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, processData, 0);
             await rtaProxy.connect(rta2).confirmOperation(1);
@@ -210,7 +210,7 @@ describe("ERC1450Upgradeable Security Token", function () {
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, approveData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
 
-            expect(await token.isBroker(broker1.address)).to.be.true;
+            expect(await token.isRegisteredBroker(broker1.address)).to.be.true;
         });
     });
 
@@ -318,7 +318,7 @@ describe("ERC1450Upgradeable Security Token", function () {
             expect(await token.supportsInterface("0x01ffc9a7")).to.be.true;
 
             // IERC20
-            expect(await token.supportsInterface("0x36372b07")).to.be.true;
+            expect(await token.supportsInterface("0x36372b07")).to.be.false;
 
             // IERC20Metadata
             expect(await token.supportsInterface("0xa219a025")).to.be.true;

@@ -155,7 +155,7 @@ describe("ERC1450 Critical Error Paths - 100% Coverage", function () {
 
                 // Try to process - should fail due to insufficient balance
                 await expect(
-                    token.connect(rta).processTransferRequest(requestId)
+                    token.connect(rta).processTransferRequest(requestId, true)
                 ).to.be.revertedWithCustomError(token, "ERC20InsufficientBalance");
             });
 

@@ -312,7 +312,7 @@ describe("RTAProxyUpgradeable Multi-Sig", function () {
             await rtaProxy.connect(signer1).submitOperation(tokenAddress, data, 0);
             await rtaProxy.connect(signer2).confirmOperation(0);
 
-            expect(await token.isBroker(broker)).to.be.true;
+            expect(await token.isRegisteredBroker(broker)).to.be.true;
         });
     });
 

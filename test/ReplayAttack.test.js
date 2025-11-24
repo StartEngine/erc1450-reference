@@ -38,7 +38,7 @@ describe("Transfer Request Replay Attack Test", function () {
         const requestId = token.interface.parseLog(event).args.requestId;
 
         // Process once
-        await token.connect(rta).processTransferRequest(requestId);
+        await token.connect(rta).processTransferRequest(requestId, true);
         const bobBalance1 = await token.balanceOf(bob.address);
         expect(bobBalance1).to.equal(ethers.parseEther("100"));
 
@@ -46,7 +46,7 @@ describe("Transfer Request Replay Attack Test", function () {
 
         // Try to process again - THIS SHOULD FAIL WITH REVERT
         await expect(
-            token.connect(rta).processTransferRequest(requestId)
+            token.connect(rta).processTransferRequest(requestId, true)
         ).to.be.revertedWith("ERC1450: Request already finalized");
 
         const bobBalance2 = await token.balanceOf(bob.address);
