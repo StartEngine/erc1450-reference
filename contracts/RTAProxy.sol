@@ -37,7 +37,8 @@ contract RTAProxy {
     uint256 public operationCount;
 
     // Time-lock for high-value transfers
-    uint256 public constant HIGH_VALUE_THRESHOLD = 1000000 * 10**18; // Example: 1M tokens
+    // Note: Assumes all tokens use 10 decimals (enforced in se-token-manager)
+    uint256 public constant HIGH_VALUE_THRESHOLD = 1000000 * 10**10; // 1M tokens (10 decimals)
     uint256 public constant TIME_LOCK_DURATION = 24 hours;
 
     // Internal wallet registry for optimized operations

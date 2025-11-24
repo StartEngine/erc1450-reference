@@ -27,7 +27,7 @@ describe("Final 80% Push - Error Paths", function () {
         await rtaProxy.waitForDeployment();
 
         const ERC1450 = await ethers.getContractFactory("ERC1450");
-        token = await ERC1450.deploy("Security Token", "SEC", 18, owner.address, await rtaProxy.getAddress());
+        token = await ERC1450.deploy("Security Token", "SEC", 10, owner.address, await rtaProxy.getAddress());
         await token.waitForDeployment();
         tokenAddress = await token.getAddress();
 
@@ -42,7 +42,7 @@ describe("Final 80% Push - Error Paths", function () {
         const ERC1450Upgradeable = await ethers.getContractFactory("ERC1450Upgradeable");
         tokenUpgradeable = await upgrades.deployProxy(
             ERC1450Upgradeable,
-            ["Security Token Upgradeable", "SECU", 18, owner.address, await rtaProxyUpgradeable.getAddress()],
+            ["Security Token Upgradeable", "SECU", 10, owner.address, await rtaProxyUpgradeable.getAddress()],
             { initializer: 'initialize' }
         );
         await tokenUpgradeable.waitForDeployment();
@@ -55,18 +55,18 @@ describe("Final 80% Push - Error Paths", function () {
             // Create 30 small batches that will mostly be depleted
             for (let i = 0; i < 30; i++) {
                 const mintData = token.interface.encodeFunctionData("mint", [
-                    alice.address, ethers.parseEther("3"), REG_US_A, issuanceDate1 - (i * 100)
+                    alice.address, ethers.parseUnits("3", 10), REG_US_A, issuanceDate1 - (i * 100)
                 ]);
                 await submitAndConfirmOperation(rtaProxy, tokenAddress, mintData, [rta1, rta2]);
             }
 
             // Burn an amount that depletes many batches completely
             const burnData = token.interface.encodeFunctionData("burnFrom", [
-                alice.address, ethers.parseEther("88")
+                alice.address, ethers.parseUnits("88", 10)
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, burnData, [rta1, rta2]);
 
-            expect(await token.balanceOf(alice.address)).to.equal(ethers.parseEther("2"));
+            expect(await token.balanceOf(alice.address)).to.equal(ethers.parseUnits("2", 10));
         });
 
         it("Should handle mixed regulation batch minting patterns", async function () {
@@ -78,7 +78,7 @@ describe("Final 80% Push - Error Paths", function () {
 
             for (let i = 0; i < 40; i++) {
                 recipients.push([alice.address, bob.address, carol.address][i % 3]);
-                amounts.push(ethers.parseEther("2"));
+                amounts.push(ethers.parseUnits("2", 10));
                 regulations.push([REG_US_A, REG_US_CF][i % 2]);
                 dates.push(issuanceDate1 - (i * 200));
             }
@@ -88,14 +88,14 @@ describe("Final 80% Push - Error Paths", function () {
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, batchMintData, [rta1, rta2]);
 
-            expect(await token.totalSupply()).to.equal(ethers.parseEther("80"));
+            expect(await token.totalSupply()).to.equal(ethers.parseUnits("80", 10));
         });
 
         it.skip("Should handle multiple sequential batch operations", async function () {
             // Batch mint
             const batchMint1 = token.interface.encodeFunctionData("batchMint", [
                 [alice.address, bob.address],
-                [ethers.parseEther("100"), ethers.parseEther("100")],
+                [ethers.parseUnits("100", 10), ethers.parseUnits("100", 10)],
                 [REG_US_A, REG_US_A],
                 [issuanceDate1, issuanceDate1]
             ]);
@@ -104,7 +104,7 @@ describe("Final 80% Push - Error Paths", function () {
             // Another batch mint
             const batchMint2 = token.interface.encodeFunctionData("batchMint", [
                 [alice.address, bob.address],
-                [ethers.parseEther("50"), ethers.parseEther("50")],
+                [ethers.parseUnits("50", 10), ethers.parseUnits("50", 10)],
                 [REG_US_CF, REG_US_CF],
                 [issuanceDate1, issuanceDate1]
             ]);
@@ -113,19 +113,19 @@ describe("Final 80% Push - Error Paths", function () {
             // Batch burn
             const batchBurn = token.interface.encodeFunctionData("batchBurnFrom", [
                 [alice.address, bob.address],
-                [ethers.parseEther("25"), ethers.parseEther("25")],
+                [ethers.parseUnits("25", 10), ethers.parseUnits("25", 10)],
                 [REG_US_A, REG_US_A],
                 [issuanceDate1, issuanceDate1]
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, batchBurn, [rta1, rta2]);
 
-            expect(await token.balanceOf(alice.address)).to.equal(ethers.parseEther("125"));
+            expect(await token.balanceOf(alice.address)).to.equal(ethers.parseUnits("125", 10));
         });
 
         it("Should handle edge cases in fee management", async function () {
             // Set fee parameters multiple times with different configurations
             const setFee1 = token.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseEther("0.005"), [ethers.ZeroAddress]
+                0, ethers.parseUnits("0.005", 10), [ethers.ZeroAddress]
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, setFee1, [rta1, rta2]);
 
@@ -134,13 +134,13 @@ describe("Final 80% Push - Error Paths", function () {
             await feeToken.waitForDeployment();
 
             const setFee2 = token.interface.encodeFunctionData("setFeeParameters", [
-                1, ethers.parseEther("2"), [await feeToken.getAddress()]
+                1, ethers.parseUnits("2", 10), [await feeToken.getAddress()]
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, setFee2, [rta1, rta2]);
 
             // Reset to native only
             const setFee3 = token.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseEther("0.01"), [ethers.ZeroAddress]
+                0, ethers.parseUnits("0.01", 10), [ethers.ZeroAddress]
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, setFee3, [rta1, rta2]);
         });
@@ -153,7 +153,7 @@ describe("Final 80% Push - Error Paths", function () {
             for (let i = 0; i < 15; i++) {
                 const mintData = tokenUpgradeable.interface.encodeFunctionData("mint", [
                     [alice.address, bob.address, carol.address][i % 3],
-                    ethers.parseEther("7"),
+                    ethers.parseUnits("7", 10),
                     [REG_US_A, REG_US_CF][i % 2],
                     issuanceDate1 - (i * 300)
                 ]);
@@ -162,23 +162,23 @@ describe("Final 80% Push - Error Paths", function () {
 
             // Burn from specific regulations
             const burn1 = tokenUpgradeable.interface.encodeFunctionData("burnFromRegulation", [
-                alice.address, ethers.parseEther("20"), REG_US_A
+                alice.address, ethers.parseUnits("20", 10), REG_US_A
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, burn1, [rta1, rta2]);
 
             const burn2 = tokenUpgradeable.interface.encodeFunctionData("burnFromRegulation", [
-                bob.address, ethers.parseEther("15"), REG_US_CF
+                bob.address, ethers.parseUnits("15", 10), REG_US_CF
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, burn2, [rta1, rta2]);
 
-            expect(await tokenUpgradeable.totalSupply()).to.equal(ethers.parseEther("70"));
+            expect(await tokenUpgradeable.totalSupply()).to.equal(ethers.parseUnits("70", 10));
         });
 
         it.skip("Should handle batch operations with minimal sizes", async function () {
             // Batch mint with just 1 item
             const batchMint = tokenUpgradeable.interface.encodeFunctionData("batchMint", [
                 [alice.address],
-                [ethers.parseEther("50")],
+                [ethers.parseUnits("50", 10)],
                 [REG_US_A],
                 [issuanceDate1]
             ]);
@@ -187,7 +187,7 @@ describe("Final 80% Push - Error Paths", function () {
             // Batch burn with 1 item
             const batchBurn = tokenUpgradeable.interface.encodeFunctionData("batchBurnFrom", [
                 [alice.address],
-                [ethers.parseEther("10")],
+                [ethers.parseUnits("10", 10)],
                 [REG_US_A],
                 [issuanceDate1]
             ]);
@@ -197,20 +197,20 @@ describe("Final 80% Push - Error Paths", function () {
             const batchTransfer = tokenUpgradeable.interface.encodeFunctionData("batchTransferFrom", [
                 [alice.address],
                 [bob.address],
-                [ethers.parseEther("20")],
+                [ethers.parseUnits("20", 10)],
                 [REG_US_A],
                 [issuanceDate1]
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, batchTransfer, [rta1, rta2]);
 
-            expect(await tokenUpgradeable.balanceOf(alice.address)).to.equal(ethers.parseEther("20"));
-            expect(await tokenUpgradeable.balanceOf(bob.address)).to.equal(ethers.parseEther("20"));
+            expect(await tokenUpgradeable.balanceOf(alice.address)).to.equal(ethers.parseUnits("20", 10));
+            expect(await tokenUpgradeable.balanceOf(bob.address)).to.equal(ethers.parseUnits("20", 10));
         });
 
         it("Should handle alternating freeze operations", async function () {
             // Mint tokens
             const mintData = tokenUpgradeable.interface.encodeFunctionData("mint", [
-                alice.address, ethers.parseEther("500"), REG_US_A, issuanceDate1
+                alice.address, ethers.parseUnits("500", 10), REG_US_A, issuanceDate1
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, mintData, [rta1, rta2]);
 
@@ -222,7 +222,7 @@ describe("Final 80% Push - Error Paths", function () {
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, freezeData, [rta1, rta2]);
 
                 const courtOrderData = tokenUpgradeable.interface.encodeFunctionData("executeCourtOrder", [
-                    alice.address, bob.address, ethers.parseEther("20"),
+                    alice.address, bob.address, ethers.parseUnits("20", 10),
                     ethers.keccak256(ethers.toUtf8Bytes(`order-${i}`))
                 ]);
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, courtOrderData, [rta1, rta2]);
@@ -233,14 +233,14 @@ describe("Final 80% Push - Error Paths", function () {
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, unfreezeData, [rta1, rta2]);
             }
 
-            expect(await tokenUpgradeable.balanceOf(bob.address)).to.equal(ethers.parseEther("100"));
+            expect(await tokenUpgradeable.balanceOf(bob.address)).to.equal(ethers.parseUnits("100", 10));
         });
 
         it("Should handle multiple small burns across many batches", async function () {
             // Create 25 tiny batches
             for (let i = 0; i < 25; i++) {
                 const mintData = tokenUpgradeable.interface.encodeFunctionData("mint", [
-                    alice.address, ethers.parseEther("4"), REG_US_A, issuanceDate1 - (i * 50)
+                    alice.address, ethers.parseUnits("4", 10), REG_US_A, issuanceDate1 - (i * 50)
                 ]);
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, mintData, [rta1, rta2]);
             }
@@ -248,28 +248,28 @@ describe("Final 80% Push - Error Paths", function () {
             // Burn in small increments that cross batches
             for (let i = 0; i < 10; i++) {
                 const burnData = tokenUpgradeable.interface.encodeFunctionData("burnFrom", [
-                    alice.address, ethers.parseEther("3")
+                    alice.address, ethers.parseUnits("3", 10)
                 ]);
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, burnData, [rta1, rta2]);
             }
 
-            expect(await tokenUpgradeable.balanceOf(alice.address)).to.equal(ethers.parseEther("70"));
+            expect(await tokenUpgradeable.balanceOf(alice.address)).to.equal(ethers.parseUnits("70", 10));
         });
 
         it("Should handle complex court order scenarios", async function () {
             // Mint to multiple accounts
             for (const addr of [alice.address, bob.address, carol.address]) {
                 const mintData = tokenUpgradeable.interface.encodeFunctionData("mint", [
-                    addr, ethers.parseEther("200"), REG_US_A, issuanceDate1
+                    addr, ethers.parseUnits("200", 10), REG_US_A, issuanceDate1
                 ]);
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, mintData, [rta1, rta2]);
             }
 
             // Execute multiple court orders
             const courtOrders = [
-                { from: alice.address, to: bob.address, amount: ethers.parseEther("50") },
-                { from: bob.address, to: carol.address, amount: ethers.parseEther("75") },
-                { from: carol.address, to: alice.address, amount: ethers.parseEther("100") }
+                { from: alice.address, to: bob.address, amount: ethers.parseUnits("50", 10) },
+                { from: bob.address, to: carol.address, amount: ethers.parseUnits("75", 10) },
+                { from: carol.address, to: alice.address, amount: ethers.parseUnits("100", 10) }
             ];
 
             for (let i = 0; i < courtOrders.length; i++) {
@@ -281,7 +281,7 @@ describe("Final 80% Push - Error Paths", function () {
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, courtOrderData, [rta1, rta2]);
             }
 
-            expect(await tokenUpgradeable.totalSupply()).to.equal(ethers.parseEther("600"));
+            expect(await tokenUpgradeable.totalSupply()).to.equal(ethers.parseUnits("600", 10));
         });
     });
 });

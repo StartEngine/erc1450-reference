@@ -32,7 +32,7 @@ describe("Court Order Event Tests", function () {
         // Mint tokens to holder1
         const mintData = token.interface.encodeFunctionData("mint", [
             holder1.address,
-            ethers.parseEther("1000"),
+            ethers.parseUnits("1000", 10),
             REG_US_A,
             issuanceDate
         ]);
@@ -42,7 +42,7 @@ describe("Court Order Event Tests", function () {
 
     describe("Regular ERC1450 Contract", function () {
         it("Should emit CourtOrderExecuted event with correct parameters", async function () {
-            const transferAmount = ethers.parseEther("500");
+            const transferAmount = ethers.parseUnits("500", 10);
             const tokenAddress = await token.getAddress();
 
             // Prepare court order execution
@@ -83,7 +83,7 @@ describe("Court Order Event Tests", function () {
         });
 
         it("Should include documentHash in event even for frozen accounts", async function () {
-            const transferAmount = ethers.parseEther("300");
+            const transferAmount = ethers.parseUnits("300", 10);
             const tokenAddress = await token.getAddress();
 
             // Freeze holder1
@@ -147,7 +147,7 @@ describe("Court Order Event Tests", function () {
             // Mint tokens
             const mintData = tokenUpgradeable.interface.encodeFunctionData("mint", [
                 holder1.address,
-                ethers.parseEther("1000"),
+                ethers.parseUnits("1000", 10),
                 REG_US_A,
                 issuanceDate
             ]);
@@ -160,7 +160,7 @@ describe("Court Order Event Tests", function () {
         });
 
         it("Should emit CourtOrderExecuted event in upgradeable contract", async function () {
-            const transferAmount = ethers.parseEther("250");
+            const transferAmount = ethers.parseUnits("250", 10);
             const tokenAddress = await tokenUpgradeable.getAddress();
 
             const courtOrderData = tokenUpgradeable.interface.encodeFunctionData("executeCourtOrder", [
@@ -199,7 +199,7 @@ describe("Court Order Event Tests", function () {
             ];
 
             for (let i = 0; i < hashes.length; i++) {
-                const amount = ethers.parseEther((10 * (i + 1)).toString());
+                const amount = ethers.parseUnits((10 * (i + 1, 10)).toString(), 10);
 
                 const courtOrderData = token.interface.encodeFunctionData("executeCourtOrder", [
                     holder1.address,

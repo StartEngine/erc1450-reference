@@ -24,7 +24,7 @@ describe("ERC1450 Security Token", function () {
         token = await ERC1450.deploy(
             "Security Token",
             "SEC",
-            18,
+            10,
             issuer.address,
             rta.address
         );
@@ -42,7 +42,7 @@ describe("ERC1450 Security Token", function () {
         it("Should set the correct token metadata", async function () {
             expect(await token.name()).to.equal("Security Token");
             expect(await token.symbol()).to.equal("SEC");
-            expect(await token.decimals()).to.equal(18);
+            expect(await token.decimals()).to.equal(10);
         });
 
         it("Should set the correct owner and transfer agent", async function () {
@@ -86,9 +86,9 @@ describe("ERC1450 Security Token", function () {
     describe("RTA Functions", function () {
         describe("Minting", function () {
             it("Should allow RTA to mint tokens", async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
-                expect(await token.balanceOf(alice.address)).to.equal(ethers.parseEther("1000"));
-                expect(await token.totalSupply()).to.equal(ethers.parseEther("1000"));
+                await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
+                expect(await token.balanceOf(alice.address)).to.equal(ethers.parseUnits("1000", 10));
+                expect(await token.totalSupply()).to.equal(ethers.parseUnits("1000", 10));
             });
 
             it("Should revert if non-RTA tries to mint", async function () {
@@ -106,37 +106,37 @@ describe("ERC1450 Security Token", function () {
 
         describe("Burning", function () {
             beforeEach(async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
+                await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
             });
 
             it("Should allow RTA to burn tokens", async function () {
-                await token.connect(rta).burnFrom(alice.address, ethers.parseEther("100"));
-                expect(await token.balanceOf(alice.address)).to.equal(ethers.parseEther("900"));
-                expect(await token.totalSupply()).to.equal(ethers.parseEther("900"));
+                await token.connect(rta).burnFrom(alice.address, ethers.parseUnits("100", 10));
+                expect(await token.balanceOf(alice.address)).to.equal(ethers.parseUnits("900", 10));
+                expect(await token.totalSupply()).to.equal(ethers.parseUnits("900", 10));
             });
 
             it("Should revert if burning more than balance", async function () {
                 await expect(
-                    token.connect(rta).burnFrom(alice.address, ethers.parseEther("2000"))
+                    token.connect(rta).burnFrom(alice.address, ethers.parseUnits("2000", 10))
                 ).to.be.revertedWithCustomError(token, "ERC20InsufficientBalance");
             });
         });
 
         describe("TransferFrom", function () {
             beforeEach(async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
+                await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
             });
 
             it("Should allow RTA to transfer tokens using transferFromRegulated", async function () {
                 await token.connect(rta).transferFromRegulated(
                     alice.address,
                     bob.address,
-                    ethers.parseEther("100"),
+                    ethers.parseUnits("100", 10),
                     REG_US_A,
                     issuanceDate
                 );
-                expect(await token.balanceOf(alice.address)).to.equal(ethers.parseEther("900"));
-                expect(await token.balanceOf(bob.address)).to.equal(ethers.parseEther("100"));
+                expect(await token.balanceOf(alice.address)).to.equal(ethers.parseUnits("900", 10));
+                expect(await token.balanceOf(bob.address)).to.equal(ethers.parseUnits("100", 10));
             });
 
             it("Should revert with ERC1450TransferDisabled when using transferFrom", async function () {
@@ -163,15 +163,15 @@ describe("ERC1450 Security Token", function () {
 
     describe("Transfer Request System", function () {
         beforeEach(async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
+            await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
 
             // Set up fee parameters (1% fee, accept ETH)
             await token.connect(rta).setFeeParameters(1, 100, [ethers.ZeroAddress]);
         });
 
         it("Should create transfer request from token holder", async function () {
-            const amount = ethers.parseEther("100");
-            const feeAmount = ethers.parseEther("1");
+            const amount = ethers.parseUnits("100", 10);
+            const feeAmount = ethers.parseUnits("1", 18);
 
             await expect(
                 token.connect(alice).requestTransferWithFee(
@@ -189,8 +189,8 @@ describe("ERC1450 Security Token", function () {
         it("Should allow approved broker to request on behalf of holder", async function () {
             await token.connect(rta).setBrokerStatus(broker.address, true);
 
-            const amount = ethers.parseEther("100");
-            const feeAmount = ethers.parseEther("1");
+            const amount = ethers.parseUnits("100", 10);
+            const feeAmount = ethers.parseUnits("1", 18);
 
             await expect(
                 token.connect(broker).requestTransferWithFee(
@@ -205,7 +205,7 @@ describe("ERC1450 Security Token", function () {
         });
 
         it("Should process approved transfer request", async function () {
-            const amount = ethers.parseEther("100");
+            const amount = ethers.parseUnits("100", 10);
 
             // Create request
             await token.connect(alice).requestTransferWithFee(
@@ -221,13 +221,13 @@ describe("ERC1450 Security Token", function () {
                 .to.emit(token, "TransferExecuted")
                 .withArgs(1, alice.address, bob.address, amount);
 
-            expect(await token.balanceOf(alice.address)).to.equal(ethers.parseEther("900"));
-            expect(await token.balanceOf(bob.address)).to.equal(ethers.parseEther("100"));
+            expect(await token.balanceOf(alice.address)).to.equal(ethers.parseUnits("900", 10));
+            expect(await token.balanceOf(bob.address)).to.equal(ethers.parseUnits("100", 10));
         });
 
         it("Should reject transfer request with reason code", async function () {
-            const amount = ethers.parseEther("100");
-            const feeAmount = ethers.parseEther("1");
+            const amount = ethers.parseUnits("100", 10);
+            const feeAmount = ethers.parseUnits("1", 18);
 
             // Create request with fee
             await token.connect(alice).requestTransferWithFee(
@@ -248,16 +248,16 @@ describe("ERC1450 Security Token", function () {
 
     describe("Fee Management", function () {
         it("Should calculate flat fee correctly", async function () {
-            await token.connect(rta).setFeeParameters(0, ethers.parseEther("10"), [ethers.ZeroAddress]);
+            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("10", 18), [ethers.ZeroAddress]);
 
             const feeAmount = await token.getTransferFee(
                 alice.address,
                 bob.address,
-                ethers.parseEther("1000"),
+                ethers.parseUnits("1000", 10),
                 ethers.ZeroAddress  // Native token
             );
 
-            expect(feeAmount).to.equal(ethers.parseEther("10"));
+            expect(feeAmount).to.equal(ethers.parseUnits("10", 18));
 
             const tokens = await token.getAcceptedFeeTokens();
             expect(tokens[0]).to.equal(ethers.ZeroAddress);
@@ -269,22 +269,22 @@ describe("ERC1450 Security Token", function () {
             const feeAmount = await token.getTransferFee(
                 alice.address,
                 bob.address,
-                ethers.parseEther("1000"),
+                ethers.parseUnits("1000", 10),
                 ethers.ZeroAddress  // Native token
             );
 
-            expect(feeAmount).to.equal(ethers.parseEther("25"));
+            expect(feeAmount).to.equal(ethers.parseUnits("25", 10));
         });
 
         it("Should allow RTA to withdraw fees", async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
+            await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
 
             // Create request with fee
-            const feeAmount = ethers.parseEther("1");
+            const feeAmount = ethers.parseUnits("1", 18);
             await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
-                ethers.parseEther("100"),
+                ethers.parseUnits("100", 10),
                 ethers.ZeroAddress,
                 feeAmount,
                 { value: feeAmount }
@@ -335,7 +335,7 @@ describe("ERC1450 Security Token", function () {
 
     describe("Court Orders", function () {
         beforeEach(async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
+            await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
         });
 
         it("Should execute court order even on frozen accounts", async function () {
@@ -348,12 +348,12 @@ describe("ERC1450 Security Token", function () {
             await token.connect(rta).executeCourtOrder(
                 alice.address,
                 bob.address,
-                ethers.parseEther("500"),
+                ethers.parseUnits("500", 10),
                 documentHash
             );
 
-            expect(await token.balanceOf(alice.address)).to.equal(ethers.parseEther("500"));
-            expect(await token.balanceOf(bob.address)).to.equal(ethers.parseEther("500"));
+            expect(await token.balanceOf(alice.address)).to.equal(ethers.parseUnits("500", 10));
+            expect(await token.balanceOf(bob.address)).to.equal(ethers.parseUnits("500", 10));
         });
     });
 
@@ -424,7 +424,7 @@ describe("ERC1450 Security Token", function () {
 
         it("Should allow RTA to recover accidentally sent ETH", async function () {
             // Send ETH to the contract
-            const amount = ethers.parseEther("1");
+            const amount = ethers.parseUnits("0.1", 18); // 0.1 ETH
             await owner.sendTransaction({
                 to: token.target,
                 value: amount

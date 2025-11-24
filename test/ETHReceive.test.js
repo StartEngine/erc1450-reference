@@ -41,7 +41,7 @@ describe("ETH Receive and Recovery", function () {
     const ERC1450Upgradeable = await ethers.getContractFactory("ERC1450Upgradeable");
     erc1450Upgradeable = await upgrades.deployProxy(
       ERC1450Upgradeable,
-      ["Test Token Upgradeable", "TSTU", 18, owner.address, await rtaProxyUpgradeable.getAddress()],
+      ["Test Token Upgradeable", "TSTU", 10, owner.address, await rtaProxyUpgradeable.getAddress()],
       { initializer: 'initialize', kind: 'uups' }
     );
     await erc1450Upgradeable.waitForDeployment();
@@ -49,7 +49,7 @@ describe("ETH Receive and Recovery", function () {
 
   describe("ERC1450 - ETH Receive", function () {
     it("Should receive ETH and emit ETHReceived event", async function () {
-      const amount = ethers.parseEther("1.0");
+      const amount = ethers.parseUnits("1.0", 10);
       const tokenAddress = await erc1450.getAddress();
 
       await expect(
@@ -69,20 +69,20 @@ describe("ETH Receive and Recovery", function () {
 
       await donor.sendTransaction({
         to: tokenAddress,
-        value: ethers.parseEther("0.5")
+        value: ethers.parseUnits("0.5", 10)
       });
 
       await investor1.sendTransaction({
         to: tokenAddress,
-        value: ethers.parseEther("0.3")
+        value: ethers.parseUnits("0.3", 10)
       });
 
       expect(await ethers.provider.getBalance(tokenAddress))
-        .to.equal(ethers.parseEther("0.8"));
+        .to.equal(ethers.parseUnits("0.8", 10));
     });
 
     it("Should allow RTA to recover sent ETH", async function () {
-      const amount = ethers.parseEther("1.0");
+      const amount = ethers.parseUnits("1.0", 10);
       const tokenAddress = await erc1450.getAddress();
 
       // Send ETH to contract
@@ -125,7 +125,7 @@ describe("ETH Receive and Recovery", function () {
     });
 
     it("Should not allow non-RTA to recover ETH", async function () {
-      const amount = ethers.parseEther("0.5");
+      const amount = ethers.parseUnits("0.5", 10);
 
       await donor.sendTransaction({
         to: await erc1450.getAddress(),
@@ -143,13 +143,13 @@ describe("ETH Receive and Recovery", function () {
       // Send 2 ETH
       await donor.sendTransaction({
         to: tokenAddress,
-        value: ethers.parseEther("2.0")
+        value: ethers.parseUnits("2.0", 10)
       });
 
       // Recover only 1 ETH
       const recoverData = erc1450.interface.encodeFunctionData("recoverToken", [
         ethers.ZeroAddress,
-        ethers.parseEther("1.0")
+        ethers.parseUnits("1.0", 10)
       ]);
 
       const tx = await rtaProxy.connect(signer1).submitOperation(
@@ -172,13 +172,13 @@ describe("ETH Receive and Recovery", function () {
 
       // 1 ETH should remain
       expect(await ethers.provider.getBalance(tokenAddress))
-        .to.equal(ethers.parseEther("1.0"));
+        .to.equal(ethers.parseUnits("1.0", 10));
     });
   });
 
   describe("ERC1450Upgradeable - ETH Receive", function () {
     it("Should receive ETH and emit ETHReceived event", async function () {
-      const amount = ethers.parseEther("0.5");
+      const amount = ethers.parseUnits("0.5", 10);
       const tokenAddress = await erc1450Upgradeable.getAddress();
 
       await expect(
@@ -194,7 +194,7 @@ describe("ETH Receive and Recovery", function () {
     });
 
     it("Should allow RTA to recover ETH", async function () {
-      const amount = ethers.parseEther("0.75");
+      const amount = ethers.parseUnits("0.75", 10);
       const tokenAddress = await erc1450Upgradeable.getAddress();
 
       await donor.sendTransaction({
@@ -232,7 +232,7 @@ describe("ETH Receive and Recovery", function () {
 
   describe("RTAProxy - ETH Receive", function () {
     it("Should receive ETH and emit ETHReceived event", async function () {
-      const amount = ethers.parseEther("2.0");
+      const amount = ethers.parseUnits("2.0", 10);
       const proxyAddress = await rtaProxy.getAddress();
 
       await expect(
@@ -253,7 +253,7 @@ describe("ETH Receive and Recovery", function () {
       // Donate ETH to RTAProxy
       await donor.sendTransaction({
         to: proxyAddress,
-        value: ethers.parseEther("1.0")
+        value: ethers.parseUnits("1.0", 10)
       });
 
       const initialBalance = await ethers.provider.getBalance(proxyAddress);
@@ -267,7 +267,7 @@ describe("ETH Receive and Recovery", function () {
       const proxyAddress = await rtaProxy.getAddress();
 
       // Send ETH to RTAProxy
-      const amount = ethers.parseEther("1.5");
+      const amount = ethers.parseUnits("1.5", 10);
       await donor.sendTransaction({
         to: proxyAddress,
         value: amount
@@ -277,7 +277,7 @@ describe("ETH Receive and Recovery", function () {
       const recipientBalanceBefore = await ethers.provider.getBalance(investor1.address);
 
       // Encode a simple transfer call
-      const transferAmount = ethers.parseEther("0.5");
+      const transferAmount = ethers.parseUnits("0.5", 10);
       const tx = await rtaProxy.connect(signer1).submitOperation(
         investor1.address,
         "0x", // empty data for simple transfer
@@ -312,27 +312,27 @@ describe("ETH Receive and Recovery", function () {
 
       await donor.sendTransaction({
         to: proxyAddress,
-        value: ethers.parseEther("0.5")
+        value: ethers.parseUnits("0.5", 10)
       });
 
       await investor1.sendTransaction({
         to: proxyAddress,
-        value: ethers.parseEther("0.3")
+        value: ethers.parseUnits("0.3", 10)
       });
 
       await investor2.sendTransaction({
         to: proxyAddress,
-        value: ethers.parseEther("0.2")
+        value: ethers.parseUnits("0.2", 10)
       });
 
       expect(await ethers.provider.getBalance(proxyAddress))
-        .to.equal(ethers.parseEther("1.0"));
+        .to.equal(ethers.parseUnits("1.0", 10));
     });
   });
 
   describe("RTAProxyUpgradeable - ETH Receive", function () {
     it("Should receive ETH and emit ETHReceived event", async function () {
-      const amount = ethers.parseEther("1.2");
+      const amount = ethers.parseUnits("1.2", 10);
       const proxyAddress = await rtaProxyUpgradeable.getAddress();
 
       await expect(
@@ -352,10 +352,10 @@ describe("ETH Receive and Recovery", function () {
 
       await donor.sendTransaction({
         to: proxyAddress,
-        value: ethers.parseEther("0.8")
+        value: ethers.parseUnits("0.8", 10)
       });
 
-      const transferAmount = ethers.parseEther("0.3");
+      const transferAmount = ethers.parseUnits("0.3", 10);
       const tx = await rtaProxyUpgradeable.connect(signer1).submitOperation(
         investor2.address,
         "0x",
@@ -414,7 +414,7 @@ describe("ETH Receive and Recovery", function () {
 
     it("Should track multiple rapid ETH sends", async function () {
       const tokenAddress = await erc1450.getAddress();
-      const amount = ethers.parseEther("0.1");
+      const amount = ethers.parseUnits("0.1", 10);
 
       // Send 5 times rapidly
       for (let i = 0; i < 5; i++) {
@@ -425,7 +425,7 @@ describe("ETH Receive and Recovery", function () {
       }
 
       expect(await ethers.provider.getBalance(tokenAddress))
-        .to.equal(ethers.parseEther("0.5"));
+        .to.equal(ethers.parseUnits("0.5", 10));
     });
   });
 });

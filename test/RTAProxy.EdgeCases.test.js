@@ -119,7 +119,7 @@ describe("RTAProxy Edge Cases & Additional Coverage", function () {
             // Submit a simple operation
             const targetAddress = signer1.address;
             const callData = "0x";
-            const value = ethers.parseEther("0");
+            const value = ethers.parseUnits("0", 10);
 
             const tx = await rtaProxy.connect(signer1).submitOperation(
                 targetAddress,

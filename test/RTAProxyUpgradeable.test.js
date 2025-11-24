@@ -31,7 +31,7 @@ describe("RTAProxyUpgradeable Multi-Sig", function () {
         // Deploy token for testing RTA operations
         token = await upgrades.deployProxy(
             ERC1450Upgradeable,
-            ["Test Token", "TST", 18, owner.address, rtaProxyAddress],
+            ["Test Token", "TST", 10, owner.address, rtaProxyAddress],
             { initializer: 'initialize', kind: 'uups' }
         );
         await token.waitForDeployment();
@@ -278,7 +278,7 @@ describe("RTAProxyUpgradeable Multi-Sig", function () {
 
     describe("Complex Token Operations", function () {
         it("Should mint tokens through multi-sig", async function () {
-            const mintAmount = ethers.parseEther("1000");
+            const mintAmount = ethers.parseUnits("1000", 10);
             const data = token.interface.encodeFunctionData("mint", [holder1.address, mintAmount
             , REG_US_A, issuanceDate]);
 
@@ -334,7 +334,7 @@ describe("RTAProxyUpgradeable Multi-Sig", function () {
             const highValueData = token.interface.encodeFunctionData("transferFromRegulated", [
                 holder1.address,
                 owner.address,
-                ethers.parseEther("1000000"),
+                ethers.parseUnits("1000000", 10),
                 REG_US_A,
                 issuanceDate
             ]);
@@ -365,7 +365,7 @@ describe("RTAProxyUpgradeable Multi-Sig", function () {
 
         it("Should handle operations with ETH value", async function () {
             const data = "0x";
-            const value = ethers.parseEther("1");
+            const value = ethers.parseUnits("1", 10);
 
             await rtaProxy.connect(signer1).submitOperation(
                 holder1.address,

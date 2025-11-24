@@ -30,7 +30,7 @@ describe("ERC1450Upgradeable - Additional Coverage", function () {
     const ERC1450Upgradeable = await ethers.getContractFactory("ERC1450Upgradeable");
     token = await upgrades.deployProxy(
       ERC1450Upgradeable,
-      ["Test Token", "TST", 18, owner.address, rtaProxyAddress],
+      ["Test Token", "TST", 10, owner.address, rtaProxyAddress],
       { initializer: 'initialize', kind: 'uups' }
     );
     await token.waitForDeployment();
@@ -42,7 +42,7 @@ describe("ERC1450Upgradeable - Additional Coverage", function () {
       // Mint tokens with different regulation types
       const mintData1 = token.interface.encodeFunctionData("mint", [
         holder1.address,
-        ethers.parseEther("1000"),
+        ethers.parseUnits("1000", 10),
         REG_US_A,
         issuanceDate1
       ]);
@@ -51,7 +51,7 @@ describe("ERC1450Upgradeable - Additional Coverage", function () {
 
       const mintData2 = token.interface.encodeFunctionData("mint", [
         holder1.address,
-        ethers.parseEther("500"),
+        ethers.parseUnits("500", 10),
         REG_US_CF,
         issuanceDate2
       ]);
@@ -60,7 +60,7 @@ describe("ERC1450Upgradeable - Additional Coverage", function () {
 
       const mintData3 = token.interface.encodeFunctionData("mint", [
         holder1.address,
-        ethers.parseEther("750"),
+        ethers.parseUnits("750", 10),
         REG_US_D,
         issuanceDate1
       ]);
@@ -94,9 +94,9 @@ describe("ERC1450Upgradeable - Additional Coverage", function () {
       const supplyCF = await token.getRegulationSupply(REG_US_CF);
       const supplyD = await token.getRegulationSupply(REG_US_D);
 
-      expect(supplyA).to.equal(ethers.parseEther("1000"));
-      expect(supplyCF).to.equal(ethers.parseEther("500"));
-      expect(supplyD).to.equal(ethers.parseEther("750"));
+      expect(supplyA).to.equal(ethers.parseUnits("1000", 10));
+      expect(supplyCF).to.equal(ethers.parseUnits("500", 10));
+      expect(supplyD).to.equal(ethers.parseUnits("750", 10));
     });
 
     it("Should return zero for unused regulation types", async function () {
@@ -109,7 +109,7 @@ describe("ERC1450Upgradeable - Additional Coverage", function () {
       const transferData = token.interface.encodeFunctionData("transferFromRegulated", [
         holder1.address,
         holder2.address,
-        ethers.parseEther("200"),
+        ethers.parseUnits("200", 10),
         REG_US_A,
         issuanceDate1
       ]);
@@ -118,7 +118,7 @@ describe("ERC1450Upgradeable - Additional Coverage", function () {
 
       // Total supply for REG_US_A should remain the same
       const supplyA = await token.getRegulationSupply(REG_US_A);
-      expect(supplyA).to.equal(ethers.parseEther("1000"));
+      expect(supplyA).to.equal(ethers.parseUnits("1000", 10));
 
       // But holder balances should change
       const holder1Details = await token.getHolderRegulations(holder1.address);
@@ -131,7 +131,7 @@ describe("ERC1450Upgradeable - Additional Coverage", function () {
     it("Should update regulation supply after burn", async function () {
       const burnData = token.interface.encodeFunctionData("burnFrom", [
         holder1.address,
-        ethers.parseEther("100")
+        ethers.parseUnits("100", 10)
       ]);
       await rtaProxy.connect(rta1).submitOperation(tokenAddress, burnData, 0);
       await rtaProxy.connect(rta2).confirmOperation(3);
@@ -139,7 +139,7 @@ describe("ERC1450Upgradeable - Additional Coverage", function () {
       // Supply should decrease (burns FIFO - oldest issuance date first)
       // Check that some regulation was burned
       const totalSupply = await token.totalSupply();
-      expect(totalSupply).to.equal(ethers.parseEther("2150"));
+      expect(totalSupply).to.equal(ethers.parseUnits("2150", 10));
 
       // Verify at least one regulation supply decreased
       const supplyA = await token.getRegulationSupply(REG_US_A);
@@ -156,7 +156,7 @@ describe("ERC1450Upgradeable - Additional Coverage", function () {
       // Mint tokens
       const mintData = token.interface.encodeFunctionData("mint", [
         holder1.address,
-        ethers.parseEther("1000"),
+        ethers.parseUnits("1000", 10),
         REG_US_A,
         issuanceDate1
       ]);
@@ -166,7 +166,7 @@ describe("ERC1450Upgradeable - Additional Coverage", function () {
       // Set fee parameters (feeType, feeValue, acceptedTokens)
       const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [
         0, // Flat fee
-        ethers.parseEther("0.01"), // 0.01 ETH fee
+        ethers.parseUnits("0.01", 10), // 0.01 ETH fee
         [ethers.ZeroAddress] // Accept ETH
       ]);
       await rtaProxy.connect(rta1).submitOperation(tokenAddress, setFeeData, 0);
@@ -178,16 +178,16 @@ describe("ERC1450Upgradeable - Additional Coverage", function () {
       await token.connect(holder1).requestTransferWithFee(
         holder1.address,
         holder2.address,
-        ethers.parseEther("100"),
+        ethers.parseUnits("100", 10),
         ethers.ZeroAddress,
-        ethers.parseEther("0.01"),
-        { value: ethers.parseEther("0.01") }
+        ethers.parseUnits("0.01", 10),
+        { value: ethers.parseUnits("0.01", 10) }
       );
 
       // Try to withdraw more than collected (token, amount, recipient)
       const withdrawData = token.interface.encodeFunctionData("withdrawFees", [
         ethers.ZeroAddress,
-        ethers.parseEther("0.02"), // More than collected
+        ethers.parseUnits("0.02", 10), // More than collected
         feeRecipient.address
       ]);
 
@@ -218,16 +218,16 @@ describe("ERC1450Upgradeable - Additional Coverage", function () {
       await token.connect(holder1).requestTransferWithFee(
         holder1.address,
         holder2.address,
-        ethers.parseEther("100"),
+        ethers.parseUnits("100", 10),
         ethers.ZeroAddress,
-        ethers.parseEther("0.01"),
-        { value: ethers.parseEther("0.01") }
+        ethers.parseUnits("0.01", 10),
+        { value: ethers.parseUnits("0.01", 10) }
       );
 
       // Try to withdraw to zero address (token, amount, recipient)
       const withdrawData = token.interface.encodeFunctionData("withdrawFees", [
         ethers.ZeroAddress,
-        ethers.parseEther("0.01"),
+        ethers.parseUnits("0.01", 10),
         ethers.ZeroAddress // Invalid recipient
       ]);
 
@@ -258,7 +258,7 @@ describe("ERC1450Upgradeable - Additional Coverage", function () {
       // Mint tokens to holder1
       const mintData = token.interface.encodeFunctionData("mint", [
         holder1.address,
-        ethers.parseEther("1000"),
+        ethers.parseUnits("1000", 10),
         REG_US_A,
         issuanceDate1
       ]);
@@ -308,7 +308,7 @@ describe("ERC1450Upgradeable - Additional Coverage", function () {
       // Mint multiple regulation types
       const mintData1 = token.interface.encodeFunctionData("mint", [
         holder1.address,
-        ethers.parseEther("1000"),
+        ethers.parseUnits("1000", 10),
         REG_US_A,
         issuanceDate1
       ]);
@@ -317,7 +317,7 @@ describe("ERC1450Upgradeable - Additional Coverage", function () {
 
       const mintData2 = token.interface.encodeFunctionData("mint", [
         holder1.address,
-        ethers.parseEther("500"),
+        ethers.parseUnits("500", 10),
         REG_US_CF,
         issuanceDate2
       ]);
@@ -328,7 +328,7 @@ describe("ERC1450Upgradeable - Additional Coverage", function () {
     it("Should burn specific regulation type correctly", async function () {
       const burnData = token.interface.encodeFunctionData("burnFromRegulation", [
         holder1.address,
-        ethers.parseEther("300"),
+        ethers.parseUnits("300", 10),
         REG_US_A
       ]);
       await rtaProxy.connect(rta1).submitOperation(tokenAddress, burnData, 0);
@@ -337,14 +337,14 @@ describe("ERC1450Upgradeable - Additional Coverage", function () {
       const supplyA = await token.getRegulationSupply(REG_US_A);
       const supplyCF = await token.getRegulationSupply(REG_US_CF);
 
-      expect(supplyA).to.equal(ethers.parseEther("700"));
-      expect(supplyCF).to.equal(ethers.parseEther("500")); // Unchanged
+      expect(supplyA).to.equal(ethers.parseUnits("700", 10));
+      expect(supplyCF).to.equal(ethers.parseUnits("500", 10)); // Unchanged
     });
 
     it("Should handle burning more than available for specific regulation type", async function () {
       const burnData = token.interface.encodeFunctionData("burnFromRegulation", [
         holder1.address,
-        ethers.parseEther("1500"), // More than available for any single type
+        ethers.parseUnits("1500", 10), // More than available for any single type
         REG_US_A
       ]);
 

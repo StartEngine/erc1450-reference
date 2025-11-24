@@ -24,7 +24,7 @@ describe("Upgradeable Contracts Critical Paths - 100% Coverage", function () {
         ERC1450Upgradeable = await ethers.getContractFactory("ERC1450Upgradeable");
         token = await upgrades.deployProxy(
             ERC1450Upgradeable,
-            ["Test Security Token", "TST", 18, issuer.address, rta.address],
+            ["Test Security Token", "TST", 10, issuer.address, rta.address],
             { kind: "uups" }
         );
         await token.waitForDeployment();
@@ -34,18 +34,18 @@ describe("Upgradeable Contracts Critical Paths - 100% Coverage", function () {
         describe("Lines 502, 505, 510: Error conditions in _transfer", function () {
             it("Should revert when burning from zero address", async function () {
                 await expect(
-                    token.connect(rta).burnFrom(ethers.ZeroAddress, ethers.parseEther("100"))
+                    token.connect(rta).burnFrom(ethers.ZeroAddress, ethers.parseUnits("100", 10))
                 ).to.be.revertedWithCustomError(token, "ERC20InvalidSender");
             });
 
             it("Should revert when transferFromRegulated to zero address", async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
+                await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
 
                 await expect(
                     token.connect(rta).transferFromRegulated(
                         alice.address,
                         ethers.ZeroAddress,
-                        ethers.parseEther("100"),
+                        ethers.parseUnits("100", 10),
                         REG_US_A,
                         issuanceDate
                     )
@@ -53,13 +53,13 @@ describe("Upgradeable Contracts Critical Paths - 100% Coverage", function () {
             });
 
             it("Should revert on insufficient balance in transferFromRegulated", async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("50"), REG_US_A, issuanceDate);
+                await token.connect(rta).mint(alice.address, ethers.parseUnits("50", 10), REG_US_A, issuanceDate);
 
                 await expect(
                     token.connect(rta).transferFromRegulated(
                         alice.address,
                         bob.address,
-                        ethers.parseEther("100"),
+                        ethers.parseUnits("100", 10),
                         REG_US_A,
                         issuanceDate
                     )
@@ -68,12 +68,12 @@ describe("Upgradeable Contracts Critical Paths - 100% Coverage", function () {
 
             it("Should revert when minting to zero address", async function () {
                 await expect(
-                    token.connect(rta).mint(ethers.ZeroAddress, ethers.parseEther("100"), REG_US_A, issuanceDate)
+                    token.connect(rta).mint(ethers.ZeroAddress, ethers.parseUnits("100", 10), REG_US_A, issuanceDate)
                 ).to.be.revertedWithCustomError(token, "ERC20InvalidReceiver");
             });
 
             it("Should revert when executeCourtOrder to zero address", async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
+                await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
 
                 const documentHash = ethers.keccak256(ethers.toUtf8Bytes("court-order"));
 
@@ -81,7 +81,7 @@ describe("Upgradeable Contracts Critical Paths - 100% Coverage", function () {
                     token.connect(rta).executeCourtOrder(
                         alice.address,
                         ethers.ZeroAddress,
-                        ethers.parseEther("100"),
+                        ethers.parseUnits("100", 10),
                         documentHash
                     )
                 ).to.be.revertedWithCustomError(token, "ERC20InvalidReceiver");
@@ -94,28 +94,28 @@ describe("Upgradeable Contracts Critical Paths - 100% Coverage", function () {
                     token.connect(rta).executeCourtOrder(
                         ethers.ZeroAddress,
                         bob.address,
-                        ethers.parseEther("100"),
+                        ethers.parseUnits("100", 10),
                         documentHash
                     )
                 ).to.be.revertedWithCustomError(token, "ERC20InvalidSender");
             });
 
             it("Should revert when burning more than balance", async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("50"), REG_US_A, issuanceDate);
+                await token.connect(rta).mint(alice.address, ethers.parseUnits("50", 10), REG_US_A, issuanceDate);
 
                 await expect(
-                    token.connect(rta).burnFrom(alice.address, ethers.parseEther("100"))
+                    token.connect(rta).burnFrom(alice.address, ethers.parseUnits("100", 10))
                 ).to.be.revertedWithCustomError(token, "ERC20InsufficientBalance");
             });
 
             it("Should revert when processing transfer request with insufficient balance", async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("50"), REG_US_A, issuanceDate);
+                await token.connect(rta).mint(alice.address, ethers.parseUnits("50", 10), REG_US_A, issuanceDate);
                 await token.connect(rta).setFeeParameters(0, 0, [ethers.ZeroAddress]);
 
                 const tx = await token.connect(alice).requestTransferWithFee(
                     alice.address,
                     bob.address,
-                    ethers.parseEther("100"),
+                    ethers.parseUnits("100", 10),
                     ethers.ZeroAddress,
                     0
                 );
@@ -233,24 +233,24 @@ describe("Upgradeable Contracts Critical Paths - 100% Coverage", function () {
 
     describe("Additional Branch Coverage", function () {
         it("Should handle frozen account transfers", async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
+            await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
             await token.connect(rta).setAccountFrozen(alice.address, true);
 
             await expect(
-                token.connect(rta).transferFromRegulated(alice.address, bob.address, ethers.parseEther("100"), REG_US_A, issuanceDate)
+                token.connect(rta).transferFromRegulated(alice.address, bob.address, ethers.parseUnits("100", 10), REG_US_A, issuanceDate)
             ).to.be.revertedWithCustomError(token, "ERC1450ComplianceCheckFailed");
         });
 
         it("Should handle rejection with and without refund", async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
-            await token.connect(rta).setFeeParameters(0, ethers.parseEther("1"), [ethers.ZeroAddress]);
+            await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
+            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 18), [ethers.ZeroAddress]);
 
             // Request with fee
-            const feeAmount = ethers.parseEther("1");
+            const feeAmount = ethers.parseUnits("1", 10);
             const tx = await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
-                ethers.parseEther("100"),
+                ethers.parseUnits("100", 10),
                 ethers.ZeroAddress,
                 feeAmount,
                 { value: feeAmount }

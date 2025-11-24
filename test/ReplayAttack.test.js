@@ -11,10 +11,10 @@ describe("Transfer Request Replay Attack Test", function () {
         [owner, rta, alice, bob] = await ethers.getSigners();
 
         ERC1450 = await ethers.getContractFactory("ERC1450");
-        token = await ERC1450.deploy("Test", "TST", 18, owner.address, rta.address);
+        token = await ERC1450.deploy("Test", "TST", 10, owner.address, rta.address);
         await token.waitForDeployment();
 
-        await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
+        await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
         await token.connect(rta).setFeeParameters(0, 0, [ethers.ZeroAddress]);
     });
 
@@ -23,7 +23,7 @@ describe("Transfer Request Replay Attack Test", function () {
         const tx = await token.connect(alice).requestTransferWithFee(
             alice.address,
             bob.address,
-            ethers.parseEther("100"),
+            ethers.parseUnits("100", 10),
             ethers.ZeroAddress,
             0
         );
@@ -40,7 +40,7 @@ describe("Transfer Request Replay Attack Test", function () {
         // Process once
         await token.connect(rta).processTransferRequest(requestId, true);
         const bobBalance1 = await token.balanceOf(bob.address);
-        expect(bobBalance1).to.equal(ethers.parseEther("100"));
+        expect(bobBalance1).to.equal(ethers.parseUnits("100", 10));
 
         console.log("        Bob balance after first process:", ethers.formatEther(bobBalance1));
 

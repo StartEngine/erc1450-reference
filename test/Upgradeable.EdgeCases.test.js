@@ -30,7 +30,7 @@ describe("Upgradeable Contracts - Edge Cases & Additional Coverage", function ()
         ERC1450Upgradeable = await ethers.getContractFactory("ERC1450Upgradeable");
         token = await upgrades.deployProxy(
             ERC1450Upgradeable,
-            ["Test Security Token", "TST", 18, issuer.address, rta.address],
+            ["Test Security Token", "TST", 10, issuer.address, rta.address],
             { kind: "uups" }
         );
         await token.waitForDeployment();
@@ -38,11 +38,11 @@ describe("Upgradeable Contracts - Edge Cases & Additional Coverage", function ()
 
     describe("Fee Token Validation", function () {
         it("Should reject transfer request with non-accepted fee token", async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
+            await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
 
             await token.connect(rta).setFeeParameters(
                 0,
-                ethers.parseEther("1"),
+                ethers.parseUnits("1", 10),
                 [ethers.ZeroAddress]
             );
 
@@ -50,9 +50,9 @@ describe("Upgradeable Contracts - Edge Cases & Additional Coverage", function ()
                 token.connect(alice).requestTransferWithFee(
                     alice.address,
                     bob.address,
-                    ethers.parseEther("100"),
+                    ethers.parseUnits("100", 10),
                     mockERC20.target,
-                    ethers.parseEther("1")
+                    ethers.parseUnits("1", 10)
                 )
             ).to.be.revertedWithCustomError(token, "ERC20InvalidReceiver");
         });
@@ -63,7 +63,7 @@ describe("Upgradeable Contracts - Edge Cases & Additional Coverage", function ()
 
             await token.connect(rta).setFeeParameters(
                 0,
-                ethers.parseEther("1"),
+                ethers.parseUnits("1", 10),
                 [token1, token2]
             );
 
@@ -76,7 +76,7 @@ describe("Upgradeable Contracts - Edge Cases & Additional Coverage", function ()
 
     describe("Token Recovery", function () {
         it("Should allow RTA to recover ERC20 tokens", async function () {
-            const amount = ethers.parseEther("100");
+            const amount = ethers.parseUnits("100", 10);
             await mockERC20.mint(token.target, amount);
 
             expect(await mockERC20.balanceOf(token.target)).to.equal(amount);
@@ -90,7 +90,7 @@ describe("Upgradeable Contracts - Edge Cases & Additional Coverage", function ()
         });
 
         it("Should allow RTA to recover ETH", async function () {
-            const amount = ethers.parseEther("1");
+            const amount = ethers.parseUnits("0.1", 18); // 0.1 ETH
             await owner.sendTransaction({
                 to: token.target,
                 value: amount
@@ -110,7 +110,7 @@ describe("Upgradeable Contracts - Edge Cases & Additional Coverage", function ()
         });
 
         it("Should not allow non-RTA to recover tokens", async function () {
-            const amount = ethers.parseEther("100");
+            const amount = ethers.parseUnits("100", 10);
             await mockERC20.mint(token.target, amount);
 
             await expect(
@@ -162,17 +162,17 @@ describe("Upgradeable Contracts - Edge Cases & Additional Coverage", function ()
 
     describe("Transfer Internal Edge Cases", function () {
         it("Should revert on insufficient balance", async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("100"), REG_US_A, issuanceDate);
+            await token.connect(rta).mint(alice.address, ethers.parseUnits("100", 10), REG_US_A, issuanceDate);
 
             await expect(
-                token.connect(rta).burnFrom(alice.address, ethers.parseEther("200"))
+                token.connect(rta).burnFrom(alice.address, ethers.parseUnits("200", 10))
             ).to.be.revertedWithCustomError(token, "ERC20InsufficientBalance");
         });
 
         it("Should handle zero address validation in internal transfer", async function () {
             // Try to mint to zero address
             await expect(
-                token.connect(rta).mint(ethers.ZeroAddress, ethers.parseEther("100"), REG_US_A, issuanceDate)
+                token.connect(rta).mint(ethers.ZeroAddress, ethers.parseUnits("100", 10), REG_US_A, issuanceDate)
             ).to.be.revertedWithCustomError(token, "ERC20InvalidReceiver");
         });
     });
@@ -181,40 +181,40 @@ describe("Upgradeable Contracts - Edge Cases & Additional Coverage", function ()
         it("Should allow withdrawing ERC20 fee tokens", async function () {
             await token.connect(rta).setFeeParameters(
                 0,
-                ethers.parseEther("1"),
+                ethers.parseUnits("1", 10),
                 [mockERC20.target]
             );
 
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
-            await mockERC20.mint(alice.address, ethers.parseEther("10"));
-            await mockERC20.connect(alice).approve(token.target, ethers.parseEther("10"));
+            await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
+            await mockERC20.mint(alice.address, ethers.parseUnits("10", 10));
+            await mockERC20.connect(alice).approve(token.target, ethers.parseUnits("10", 10));
 
             await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
-                ethers.parseEther("100"),
+                ethers.parseUnits("100", 10),
                 mockERC20.target,
-                ethers.parseEther("1")
+                ethers.parseUnits("1", 10)
             );
 
-            expect(await token.collectedFees(mockERC20.target)).to.equal(ethers.parseEther("1"));
+            expect(await token.collectedFees(mockERC20.target)).to.equal(ethers.parseUnits("1", 10));
 
             const rtaBalanceBefore = await mockERC20.balanceOf(rta.address);
             await token.connect(rta).withdrawFees(
                 mockERC20.target,
-                ethers.parseEther("1"),
+                ethers.parseUnits("1", 10),
                 rta.address
             );
             const rtaBalanceAfter = await mockERC20.balanceOf(rta.address);
 
-            expect(rtaBalanceAfter - rtaBalanceBefore).to.equal(ethers.parseEther("1"));
+            expect(rtaBalanceAfter - rtaBalanceBefore).to.equal(ethers.parseUnits("1", 10));
         });
 
         it("Should revert withdrawal to zero address", async function () {
             await expect(
                 token.connect(rta).withdrawFees(
                     ethers.ZeroAddress,
-                    ethers.parseEther("1"),
+                    ethers.parseUnits("1", 10),
                     ethers.ZeroAddress
                 )
             ).to.be.revertedWith("ERC1450: Invalid recipient");
@@ -286,58 +286,58 @@ describe("Upgradeable Contracts - Edge Cases & Additional Coverage", function ()
             const feeAmount = await token.getTransferFee(
                 alice.address,
                 bob.address,
-                ethers.parseEther("1000"),
+                ethers.parseUnits("1000", 10),
                 ethers.ZeroAddress
             );
 
-            expect(feeAmount).to.equal(ethers.parseEther("25"));
+            expect(feeAmount).to.equal(ethers.parseUnits("25", 10));
         });
 
         it("Should handle flat fee calculation", async function () {
             await token.connect(rta).setFeeParameters(
                 0, // flat
-                ethers.parseEther("10"),
+                ethers.parseUnits("10", 10),
                 [ethers.ZeroAddress]
             );
 
             const feeAmount = await token.getTransferFee(
                 alice.address,
                 bob.address,
-                ethers.parseEther("1000"),
+                ethers.parseUnits("1000", 10),
                 ethers.ZeroAddress
             );
 
-            expect(feeAmount).to.equal(ethers.parseEther("10"));
+            expect(feeAmount).to.equal(ethers.parseUnits("10", 10));
         });
 
         it("Should handle other fee types", async function () {
             await token.connect(rta).setFeeParameters(
                 2, // other type
-                ethers.parseEther("5"),
+                ethers.parseUnits("5", 10),
                 [ethers.ZeroAddress]
             );
 
             const feeAmount = await token.getTransferFee(
                 alice.address,
                 bob.address,
-                ethers.parseEther("1000"),
+                ethers.parseUnits("1000", 10),
                 ethers.ZeroAddress
             );
 
             // For other types, it returns feeValue directly
-            expect(feeAmount).to.equal(ethers.parseEther("5"));
+            expect(feeAmount).to.equal(ethers.parseUnits("5", 10));
         });
     });
 
     describe("Court Order Execution", function () {
         it("Should execute court order with event", async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
+            await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
 
             const documentHash = ethers.keccak256(ethers.toUtf8Bytes("court-order-123"));
             const tx = await token.connect(rta).executeCourtOrder(
                 alice.address,
                 bob.address,
-                ethers.parseEther("500"),
+                ethers.parseUnits("500", 10),
                 documentHash
             );
 
@@ -355,7 +355,7 @@ describe("Upgradeable Contracts - Edge Cases & Additional Coverage", function ()
             const parsedEvent = token.interface.parseLog(event);
             expect(parsedEvent.args[0]).to.equal(alice.address);
             expect(parsedEvent.args[1]).to.equal(bob.address);
-            expect(parsedEvent.args[2]).to.equal(ethers.parseEther("500"));
+            expect(parsedEvent.args[2]).to.equal(ethers.parseUnits("500", 10));
             expect(parsedEvent.args[3]).to.equal(documentHash);
         });
     });

@@ -36,7 +36,7 @@ describe("Upgradeable Contract Focus - Final 1.5%", function () {
         const ERC1450Upgradeable = await ethers.getContractFactory("ERC1450Upgradeable");
         tokenUpgradeable = await upgrades.deployProxy(
             ERC1450Upgradeable,
-            ["Security Token Upgradeable", "SECU", 18, owner.address, await rtaProxyUpgradeable.getAddress()],
+            ["Security Token Upgradeable", "SECU", 10, owner.address, await rtaProxyUpgradeable.getAddress()],
             { initializer: 'initialize' }
         );
         await tokenUpgradeable.waitForDeployment();
@@ -54,7 +54,7 @@ describe("Upgradeable Contract Focus - Final 1.5%", function () {
             // Maximum allowed batch size with full diversity
             for (let i = 0; i < 100; i++) {
                 recipients.push([alice.address, bob.address, carol.address, dave.address, eve.address][i % 5]);
-                amounts.push(ethers.parseEther(((i % 10) + 1).toString()));
+                amounts.push(ethers.parseUnits(((i % 10, 10) + 1).toString(), 10));
                 regulations.push([REG_US_A, REG_US_CF, REG_US_D, REG_US_S][i % 4]);
                 dates.push([issuanceDate1, issuanceDate2, issuanceDate3][i % 3]);
             }
@@ -64,7 +64,7 @@ describe("Upgradeable Contract Focus - Final 1.5%", function () {
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, batchMintData, [rta1, rta2]);
 
-            expect(await tokenUpgradeable.totalSupply()).to.be.gt(ethers.parseEther("500"));
+            expect(await tokenUpgradeable.totalSupply()).to.be.gt(ethers.parseUnits("500", 10));
         });
 
         it("Should handle massive batch cleanup with 80 batches", async function () {
@@ -72,7 +72,7 @@ describe("Upgradeable Contract Focus - Final 1.5%", function () {
             for (let i = 0; i < 80; i++) {
                 const mintData = tokenUpgradeable.interface.encodeFunctionData("mint", [
                     alice.address,
-                    ethers.parseEther("1.5"),
+                    ethers.parseUnits("1.5", 10),
                     [REG_US_A, REG_US_CF][i % 2],
                     issuanceDate1 - (i * 25)
                 ]);
@@ -81,18 +81,18 @@ describe("Upgradeable Contract Focus - Final 1.5%", function () {
 
             // Burn amount that depletes many batches
             const burnData = tokenUpgradeable.interface.encodeFunctionData("burnFrom", [
-                alice.address, ethers.parseEther("115")
+                alice.address, ethers.parseUnits("115", 10)
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, burnData, [rta1, rta2]);
 
-            expect(await tokenUpgradeable.balanceOf(alice.address)).to.equal(ethers.parseEther("5"));
+            expect(await tokenUpgradeable.balanceOf(alice.address)).to.equal(ethers.parseUnits("5", 10));
         });
 
         it("Should handle complex cross-regulation batch transfers", async function () {
             // Setup with multiple regulations
             const mintA = tokenUpgradeable.interface.encodeFunctionData("batchMint", [
                 [alice.address, alice.address, alice.address],
-                [ethers.parseEther("100"), ethers.parseEther("100"), ethers.parseEther("100")],
+                [ethers.parseUnits("100", 10), ethers.parseUnits("100", 10), ethers.parseUnits("100", 10)],
                 [REG_US_A, REG_US_A, REG_US_A],
                 [issuanceDate1, issuanceDate2, issuanceDate3]
             ]);
@@ -100,7 +100,7 @@ describe("Upgradeable Contract Focus - Final 1.5%", function () {
 
             const mintCF = tokenUpgradeable.interface.encodeFunctionData("batchMint", [
                 [alice.address, alice.address, alice.address],
-                [ethers.parseEther("80"), ethers.parseEther("80"), ethers.parseEther("80")],
+                [ethers.parseUnits("80", 10), ethers.parseUnits("80", 10), ethers.parseUnits("80", 10)],
                 [REG_US_CF, REG_US_CF, REG_US_CF],
                 [issuanceDate1, issuanceDate2, issuanceDate3]
             ]);
@@ -110,14 +110,14 @@ describe("Upgradeable Contract Focus - Final 1.5%", function () {
             const batchTransfer1 = tokenUpgradeable.interface.encodeFunctionData("batchTransferFrom", [
                 [alice.address, alice.address, alice.address, alice.address],
                 [bob.address, bob.address, carol.address, carol.address],
-                [ethers.parseEther("50"), ethers.parseEther("40"), ethers.parseEther("60"), ethers.parseEther("30")],
+                [ethers.parseUnits("50", 10), ethers.parseUnits("40", 10), ethers.parseUnits("60", 10), ethers.parseUnits("30", 10)],
                 [REG_US_A, REG_US_CF, REG_US_A, REG_US_CF],
                 [issuanceDate1, issuanceDate1, issuanceDate2, issuanceDate2]
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, batchTransfer1, [rta1, rta2]);
 
-            expect(await tokenUpgradeable.balanceOf(bob.address)).to.equal(ethers.parseEther("90"));
-            expect(await tokenUpgradeable.balanceOf(carol.address)).to.equal(ethers.parseEther("90"));
+            expect(await tokenUpgradeable.balanceOf(bob.address)).to.equal(ethers.parseUnits("90", 10));
+            expect(await tokenUpgradeable.balanceOf(carol.address)).to.equal(ethers.parseUnits("90", 10));
         });
 
         it("Should handle repeated regulation-specific burns", async function () {
@@ -125,7 +125,7 @@ describe("Upgradeable Contract Focus - Final 1.5%", function () {
             for (let i = 0; i < 30; i++) {
                 const reg = [REG_US_A, REG_US_CF, REG_US_D][i % 3];
                 const mintData = tokenUpgradeable.interface.encodeFunctionData("mint", [
-                    alice.address, ethers.parseEther("8"), reg, issuanceDate1 - (i * 33)
+                    alice.address, ethers.parseUnits("8", 10), reg, issuanceDate1 - (i * 33)
                 ]);
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, mintData, [rta1, rta2]);
             }
@@ -134,47 +134,47 @@ describe("Upgradeable Contract Focus - Final 1.5%", function () {
             for (let i = 0; i < 12; i++) {
                 const reg = [REG_US_A, REG_US_CF, REG_US_D][i % 3];
                 const burnData = tokenUpgradeable.interface.encodeFunctionData("burnFromRegulation", [
-                    alice.address, ethers.parseEther("10"), reg
+                    alice.address, ethers.parseUnits("10", 10), reg
                 ]);
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, burnData, [rta1, rta2]);
             }
 
-            expect(await tokenUpgradeable.balanceOf(alice.address)).to.equal(ethers.parseEther("120"));
+            expect(await tokenUpgradeable.balanceOf(alice.address)).to.equal(ethers.parseUnits("120", 10));
         });
 
         it("Should handle address zero error paths in request functions", async function () {
             const mintData = tokenUpgradeable.interface.encodeFunctionData("mint", [
-                alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate1
+                alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate1
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, mintData, [rta1, rta2]);
 
             const setFeeData = tokenUpgradeable.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseEther("0.01"), [ethers.ZeroAddress]
+                0, ethers.parseUnits("0.01", 10), [ethers.ZeroAddress]
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, setFeeData, [rta1, rta2]);
 
             // Test address(0) as from
             await expect(
                 tokenUpgradeable.connect(alice).requestTransferWithFee(
-                    ethers.ZeroAddress, bob.address, ethers.parseEther("100"),
-                    ethers.ZeroAddress, ethers.parseEther("0.01"),
-                    { value: ethers.parseEther("0.01") }
+                    ethers.ZeroAddress, bob.address, ethers.parseUnits("100", 10),
+                    ethers.ZeroAddress, ethers.parseUnits("0.01", 10),
+                    { value: ethers.parseUnits("0.01", 10) }
                 )
             ).to.be.reverted;
 
             // Test address(0) as to
             await expect(
                 tokenUpgradeable.connect(alice).requestTransferWithFee(
-                    alice.address, ethers.ZeroAddress, ethers.parseEther("100"),
-                    ethers.ZeroAddress, ethers.parseEther("0.01"),
-                    { value: ethers.parseEther("0.01") }
+                    alice.address, ethers.ZeroAddress, ethers.parseUnits("100", 10),
+                    ethers.ZeroAddress, ethers.parseUnits("0.01", 10),
+                    { value: ethers.parseUnits("0.01", 10) }
                 )
             ).to.be.reverted;
         });
 
         it("Should handle multi-cycle freeze operations with varied amounts", async function () {
             const mintData = tokenUpgradeable.interface.encodeFunctionData("mint", [
-                alice.address, ethers.parseEther("2000"), REG_US_A, issuanceDate1
+                alice.address, ethers.parseUnits("2000", 10), REG_US_A, issuanceDate1
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, mintData, [rta1, rta2]);
 
@@ -183,7 +183,7 @@ describe("Upgradeable Contract Focus - Final 1.5%", function () {
                 const freezeData = tokenUpgradeable.interface.encodeFunctionData("setAccountFrozen", [alice.address, true]);
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, freezeData, [rta1, rta2]);
 
-                const amount = ethers.parseEther(((i % 5) + 10).toString());
+                const amount = ethers.parseUnits(((i % 5, 10) + 10).toString(), 10);
                 const courtOrderData = tokenUpgradeable.interface.encodeFunctionData("executeCourtOrder", [
                     alice.address, bob.address, amount,
                     ethers.keccak256(ethers.toUtf8Bytes(`multicycle-${i}`))
@@ -193,14 +193,14 @@ describe("Upgradeable Contract Focus - Final 1.5%", function () {
                 const unfreezeData = tokenUpgradeable.interface.encodeFunctionData("setAccountFrozen", [alice.address, false]);
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, unfreezeData, [rta1, rta2]);
 
-                const transferAmount = ethers.parseEther(((i % 4) + 5).toString());
+                const transferAmount = ethers.parseUnits(((i % 4, 10) + 5).toString(), 10);
                 const transferData = tokenUpgradeable.interface.encodeFunctionData("transferFromRegulated", [
                     alice.address, carol.address, transferAmount, REG_US_A, issuanceDate1
                 ]);
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, transferData, [rta1, rta2]);
             }
 
-            expect(await tokenUpgradeable.balanceOf(alice.address)).to.be.lt(ethers.parseEther("2000"));
+            expect(await tokenUpgradeable.balanceOf(alice.address)).to.be.lt(ethers.parseUnits("2000", 10));
         });
 
         it.skip("Should handle batch operations with all four regulation types", async function () {
@@ -208,8 +208,8 @@ describe("Upgradeable Contract Focus - Final 1.5%", function () {
             const batchMint = tokenUpgradeable.interface.encodeFunctionData("batchMint", [
                 [alice.address, alice.address, alice.address, alice.address,
                  bob.address, bob.address, bob.address, bob.address],
-                [ethers.parseEther("50"), ethers.parseEther("60"), ethers.parseEther("70"), ethers.parseEther("80"),
-                 ethers.parseEther("50"), ethers.parseEther("60"), ethers.parseEther("70"), ethers.parseEther("80")],
+                [ethers.parseUnits("50", 10), ethers.parseUnits("60", 10), ethers.parseUnits("70", 10), ethers.parseUnits("80", 10),
+                 ethers.parseUnits("50", 10), ethers.parseUnits("60", 10), ethers.parseUnits("70", 10), ethers.parseUnits("80", 10)],
                 [REG_US_A, REG_US_CF, REG_US_D, REG_US_S, REG_US_A, REG_US_CF, REG_US_D, REG_US_S],
                 [issuanceDate1, issuanceDate1, issuanceDate1, issuanceDate1,
                  issuanceDate2, issuanceDate2, issuanceDate2, issuanceDate2]
@@ -219,7 +219,7 @@ describe("Upgradeable Contract Focus - Final 1.5%", function () {
             // Batch burn from all types
             const batchBurn = tokenUpgradeable.interface.encodeFunctionData("batchBurnFrom", [
                 [alice.address, alice.address, alice.address, alice.address],
-                [ethers.parseEther("10"), ethers.parseEther("15"), ethers.parseEther("20"), ethers.parseEther("25")],
+                [ethers.parseUnits("10", 10), ethers.parseUnits("15", 10), ethers.parseUnits("20", 10), ethers.parseUnits("25", 10)],
                 [REG_US_A, REG_US_CF, REG_US_D, REG_US_S],
                 [issuanceDate1, issuanceDate1, issuanceDate1, issuanceDate1]
             ]);
@@ -229,32 +229,32 @@ describe("Upgradeable Contract Focus - Final 1.5%", function () {
             const batchTransfer = tokenUpgradeable.interface.encodeFunctionData("batchTransferFrom", [
                 [alice.address, alice.address, alice.address, alice.address],
                 [carol.address, carol.address, carol.address, carol.address],
-                [ethers.parseEther("20"), ethers.parseEther("25"), ethers.parseEther("30"), ethers.parseEther("35")],
+                [ethers.parseUnits("20", 10), ethers.parseUnits("25", 10), ethers.parseUnits("30", 10), ethers.parseUnits("35", 10)],
                 [REG_US_A, REG_US_CF, REG_US_D, REG_US_S],
                 [issuanceDate1, issuanceDate1, issuanceDate1, issuanceDate1]
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, batchTransfer, [rta1, rta2]);
 
-            expect(await tokenUpgradeable.balanceOf(carol.address)).to.equal(ethers.parseEther("110"));
+            expect(await tokenUpgradeable.balanceOf(carol.address)).to.equal(ethers.parseUnits("110", 10));
         });
 
         it("Should handle extreme transfer request management", async function () {
             const mintData = tokenUpgradeable.interface.encodeFunctionData("mint", [
-                alice.address, ethers.parseEther("5000"), REG_US_A, issuanceDate1
+                alice.address, ethers.parseUnits("5000", 10), REG_US_A, issuanceDate1
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, mintData, [rta1, rta2]);
 
             const setFeeData = tokenUpgradeable.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseEther("0.01"), [ethers.ZeroAddress]
+                0, ethers.parseUnits("0.01", 10), [ethers.ZeroAddress]
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, setFeeData, [rta1, rta2]);
 
             // Create 15 requests
             for (let i = 0; i < 15; i++) {
                 await tokenUpgradeable.connect(alice).requestTransferWithFee(
-                    alice.address, bob.address, ethers.parseEther("100"),
-                    ethers.ZeroAddress, ethers.parseEther("0.01"),
-                    { value: ethers.parseEther("0.01") }
+                    alice.address, bob.address, ethers.parseUnits("100", 10),
+                    ethers.ZeroAddress, ethers.parseUnits("0.01", 10),
+                    { value: ethers.parseUnits("0.01", 10) }
                 );
             }
 
@@ -272,7 +272,7 @@ describe("Upgradeable Contract Focus - Final 1.5%", function () {
                 }
             }
 
-            expect(await tokenUpgradeable.balanceOf(bob.address)).to.equal(ethers.parseEther("500"));
+            expect(await tokenUpgradeable.balanceOf(bob.address)).to.equal(ethers.parseUnits("500", 10));
         });
 
         it("Should handle deep batch nesting with partial depletes", async function () {
@@ -280,7 +280,7 @@ describe("Upgradeable Contract Focus - Final 1.5%", function () {
             for (let i = 0; i < 60; i++) {
                 const mintData = tokenUpgradeable.interface.encodeFunctionData("mint", [
                     alice.address,
-                    ethers.parseEther("2.5"),
+                    ethers.parseUnits("2.5", 10),
                     [REG_US_A, REG_US_CF, REG_US_D][i % 3],
                     issuanceDate1 - (i * 17)
                 ]);
@@ -290,12 +290,12 @@ describe("Upgradeable Contract Focus - Final 1.5%", function () {
             // Multiple small burns that partially deplete batches
             for (let i = 0; i < 15; i++) {
                 const burnData = tokenUpgradeable.interface.encodeFunctionData("burnFrom", [
-                    alice.address, ethers.parseEther("3.7")
+                    alice.address, ethers.parseUnits("3.7", 10)
                 ]);
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, burnData, [rta1, rta2]);
             }
 
-            expect(await tokenUpgradeable.balanceOf(alice.address)).to.equal(ethers.parseEther("94.5"));
+            expect(await tokenUpgradeable.balanceOf(alice.address)).to.equal(ethers.parseUnits("94.5", 10));
         });
     });
 });

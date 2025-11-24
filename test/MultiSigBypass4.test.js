@@ -21,7 +21,7 @@ describe("Multi-Sig Confirmation Bypass - 4 Signers Test", function () {
 
         // Deploy token
         ERC1450 = await ethers.getContractFactory("ERC1450");
-        token = await ERC1450.deploy("Test", "TST", 18, owner.address, rtaProxy.target);
+        token = await ERC1450.deploy("Test", "TST", 10, owner.address, rtaProxy.target);
         await token.waitForDeployment();
     });
 
@@ -29,7 +29,7 @@ describe("Multi-Sig Confirmation Bypass - 4 Signers Test", function () {
         console.log("\n        === Testing Multi-Sig Bypass (4 Signers, Need 3) ===\n");
 
         // Create a mint operation
-        const mintData = token.interface.encodeFunctionData("mint", [alice.address, ethers.parseEther("1000")
+        const mintData = token.interface.encodeFunctionData("mint", [alice.address, ethers.parseUnits("1000", 10)
         , REG_US_A, issuanceDate]);
 
         // Submit operation (auto-confirms from signer1) - 1/3 confirmations
@@ -142,7 +142,7 @@ describe("Multi-Sig Confirmation Bypass - 4 Signers Test", function () {
         console.log("        - Alice balance:", ethers.formatEther(aliceBalance));
 
         expect(op.executed).to.be.true;
-        expect(aliceBalance).to.equal(ethers.parseEther("1000"));
+        expect(aliceBalance).to.equal(ethers.parseUnits("1000", 10));
         console.log("\n        ✅ Multi-sig bypass fixed!");
         console.log("        Removed signer's confirmation was NOT counted toward active threshold!");
     });

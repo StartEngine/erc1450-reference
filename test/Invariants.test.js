@@ -28,10 +28,10 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
         it("Total supply should equal sum of all balances", async function () {
             // Mint tokens to multiple users
             const amounts = [
-                ethers.parseEther("100"),
-                ethers.parseEther("200"),
-                ethers.parseEther("150"),
-                ethers.parseEther("50")
+                ethers.parseUnits("100", 10),
+                ethers.parseUnits("200", 10),
+                ethers.parseUnits("150", 10),
+                ethers.parseUnits("50", 10)
             ];
 
             for (let i = 0; i < users.length; i++) {
@@ -53,46 +53,46 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
             const initialSupply = await token.totalSupply();
 
             // Mint some tokens
-            await token.connect(rta).mint(alice.address, ethers.parseEther("100"), REG_US_A, issuanceDate);
+            await token.connect(rta).mint(alice.address, ethers.parseUnits("100", 10), REG_US_A, issuanceDate);
             const afterMint = await token.totalSupply();
             expect(afterMint).to.be.gt(initialSupply);
 
             // Transfer doesn't change total supply
-            await token.connect(rta).mint(bob.address, ethers.parseEther("50"), REG_US_A, issuanceDate);
-            await token.connect(rta).transferFromRegulated(bob.address, alice.address, ethers.parseEther("50"), REG_US_A, issuanceDate);
+            await token.connect(rta).mint(bob.address, ethers.parseUnits("50", 10), REG_US_A, issuanceDate);
+            await token.connect(rta).transferFromRegulated(bob.address, alice.address, ethers.parseUnits("50", 10), REG_US_A, issuanceDate);
             const afterTransfer = await token.totalSupply();
-            expect(afterTransfer).to.equal(afterMint + ethers.parseEther("50"));
+            expect(afterTransfer).to.equal(afterMint + ethers.parseUnits("50", 10));
 
             // Burn decreases total supply
-            await token.connect(rta).burnFrom(alice.address, ethers.parseEther("30"));
+            await token.connect(rta).burnFrom(alice.address, ethers.parseUnits("30", 10));
             const afterBurn = await token.totalSupply();
-            expect(afterBurn).to.equal(afterTransfer - ethers.parseEther("30"));
+            expect(afterBurn).to.equal(afterTransfer - ethers.parseUnits("30", 10));
         });
     });
 
     describe("Invariant 2: Balance Integrity", function () {
         it("Balance should never be negative (checked via type safety)", async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("100"), REG_US_A, issuanceDate);
+            await token.connect(rta).mint(alice.address, ethers.parseUnits("100", 10), REG_US_A, issuanceDate);
 
             // Attempting to transfer more than balance should revert
             await expect(
-                token.connect(rta).transferFromRegulated(alice.address, bob.address, ethers.parseEther("200"), REG_US_A, issuanceDate)
+                token.connect(rta).transferFromRegulated(alice.address, bob.address, ethers.parseUnits("200", 10), REG_US_A, issuanceDate)
             ).to.be.revertedWith("ERC1450: Insufficient batch balance");
 
             // Balance remains intact
-            expect(await token.balanceOf(alice.address)).to.equal(ethers.parseEther("100"));
+            expect(await token.balanceOf(alice.address)).to.equal(ethers.parseUnits("100", 10));
         });
 
         it("Sum of balances before transfer equals sum after transfer", async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("100"), REG_US_A, issuanceDate);
-            await token.connect(rta).mint(bob.address, ethers.parseEther("50"), REG_US_A, issuanceDate);
+            await token.connect(rta).mint(alice.address, ethers.parseUnits("100", 10), REG_US_A, issuanceDate);
+            await token.connect(rta).mint(bob.address, ethers.parseUnits("50", 10), REG_US_A, issuanceDate);
 
             const aliceBalanceBefore = await token.balanceOf(alice.address);
             const bobBalanceBefore = await token.balanceOf(bob.address);
             const sumBefore = aliceBalanceBefore + bobBalanceBefore;
 
             // Transfer
-            await token.connect(rta).transferFromRegulated(alice.address, bob.address, ethers.parseEther("30"), REG_US_A, issuanceDate);
+            await token.connect(rta).transferFromRegulated(alice.address, bob.address, ethers.parseUnits("30", 10), REG_US_A, issuanceDate);
 
             const aliceBalanceAfter = await token.balanceOf(alice.address);
             const bobBalanceAfter = await token.balanceOf(bob.address);
@@ -106,18 +106,18 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
         it("Only RTA can perform privileged operations", async function () {
             // Non-RTA cannot mint
             await expect(
-                token.connect(alice).mint(bob.address, ethers.parseEther("100"), REG_US_A, issuanceDate)
+                token.connect(alice).mint(bob.address, ethers.parseUnits("100", 10), REG_US_A, issuanceDate)
             ).to.be.revertedWithCustomError(token, "ERC1450OnlyRTA");
 
             // Non-RTA cannot burn
-            await token.connect(rta).mint(alice.address, ethers.parseEther("100"), REG_US_A, issuanceDate);
+            await token.connect(rta).mint(alice.address, ethers.parseUnits("100", 10), REG_US_A, issuanceDate);
             await expect(
-                token.connect(bob).burnFrom(alice.address, ethers.parseEther("50"))
+                token.connect(bob).burnFrom(alice.address, ethers.parseUnits("50", 10))
             ).to.be.revertedWithCustomError(token, "ERC1450OnlyRTA");
 
             // Non-RTA cannot transfer (transferFrom is disabled)
             await expect(
-                token.connect(alice).transferFrom(alice.address, bob.address, ethers.parseEther("50"))
+                token.connect(alice).transferFrom(alice.address, bob.address, ethers.parseUnits("50", 10))
             ).to.be.revertedWithCustomError(token, "ERC1450TransferDisabled");
 
             // Non-RTA cannot freeze accounts
@@ -132,21 +132,21 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
         });
 
         it("Direct ERC20 functions should be disabled", async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("100"), REG_US_A, issuanceDate);
+            await token.connect(rta).mint(alice.address, ethers.parseUnits("100", 10), REG_US_A, issuanceDate);
 
             // transfer() should revert
             await expect(
-                token.connect(alice).transfer(bob.address, ethers.parseEther("50"))
+                token.connect(alice).transfer(bob.address, ethers.parseUnits("50", 10))
             ).to.be.revertedWithCustomError(token, "ERC1450TransferDisabled");
 
             // approve() should revert
             await expect(
-                token.connect(alice).approve(bob.address, ethers.parseEther("50"))
+                token.connect(alice).approve(bob.address, ethers.parseUnits("50", 10))
             ).to.be.revertedWithCustomError(token, "ERC1450TransferDisabled");
 
             // transferFrom() is disabled for everyone
             await expect(
-                token.connect(bob).transferFrom(alice.address, bob.address, ethers.parseEther("50"))
+                token.connect(bob).transferFrom(alice.address, bob.address, ethers.parseUnits("50", 10))
             ).to.be.revertedWithCustomError(token, "ERC1450TransferDisabled");
 
             // allowance should always return 0
@@ -156,20 +156,20 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
 
     describe("Invariant 4: Frozen Account Restrictions", function () {
         it("Frozen accounts cannot send or receive (except court orders)", async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("100"), REG_US_A, issuanceDate);
-            await token.connect(rta).mint(bob.address, ethers.parseEther("100"), REG_US_A, issuanceDate);
+            await token.connect(rta).mint(alice.address, ethers.parseUnits("100", 10), REG_US_A, issuanceDate);
+            await token.connect(rta).mint(bob.address, ethers.parseUnits("100", 10), REG_US_A, issuanceDate);
 
             // Freeze alice
             await token.connect(rta).setAccountFrozen(alice.address, true);
 
             // Alice cannot send
             await expect(
-                token.connect(rta).transferFromRegulated(alice.address, bob.address, ethers.parseEther("50"), REG_US_A, issuanceDate)
+                token.connect(rta).transferFromRegulated(alice.address, bob.address, ethers.parseUnits("50", 10), REG_US_A, issuanceDate)
             ).to.be.revertedWithCustomError(token, "ERC1450ComplianceCheckFailed");
 
             // Alice cannot receive
             await expect(
-                token.connect(rta).transferFromRegulated(bob.address, alice.address, ethers.parseEther("50"), REG_US_A, issuanceDate)
+                token.connect(rta).transferFromRegulated(bob.address, alice.address, ethers.parseUnits("50", 10), REG_US_A, issuanceDate)
             ).to.be.revertedWithCustomError(token, "ERC1450ComplianceCheckFailed");
 
             // Court order should still work
@@ -178,7 +178,7 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
                 token.connect(rta).executeCourtOrder(
                     alice.address,
                     bob.address,
-                    ethers.parseEther("30"),
+                    ethers.parseUnits("30", 10),
                     documentHash
                 )
             ).to.emit(token, "CourtOrderExecuted");
@@ -187,8 +187,8 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
 
     describe("Invariant 5: Fee Collection Integrity", function () {
         it("Collected fees should never decrease except on withdrawal", async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
-            await token.connect(rta).setFeeParameters(0, ethers.parseEther("1"), [ethers.ZeroAddress]);
+            await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
+            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 18), [ethers.ZeroAddress]);
 
             const initialFees = await token.collectedFees(ethers.ZeroAddress);
 
@@ -196,10 +196,10 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
             await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
-                ethers.parseEther("100"),
+                ethers.parseUnits("100", 10),
                 ethers.ZeroAddress,
-                ethers.parseEther("1"),
-                { value: ethers.parseEther("1") }
+                ethers.parseUnits("1", 10),
+                { value: ethers.parseUnits("1", 10) }
             );
 
             const afterRequest = await token.collectedFees(ethers.ZeroAddress);
@@ -209,10 +209,10 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
             await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
-                ethers.parseEther("100"),
+                ethers.parseUnits("100", 10),
                 ethers.ZeroAddress,
-                ethers.parseEther("1"),
-                { value: ethers.parseEther("1") }
+                ethers.parseUnits("1", 10),
+                { value: ethers.parseUnits("1", 10) }
             );
 
             const afterSecondRequest = await token.collectedFees(ethers.ZeroAddress);
@@ -221,33 +221,33 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
             // Withdrawal decreases fees
             await token.connect(rta).withdrawFees(
                 ethers.ZeroAddress,
-                ethers.parseEther("1"),
+                ethers.parseUnits("1", 10),
                 rta.address
             );
 
             const afterWithdrawal = await token.collectedFees(ethers.ZeroAddress);
-            expect(afterWithdrawal).to.equal(afterSecondRequest - ethers.parseEther("1"));
+            expect(afterWithdrawal).to.equal(afterSecondRequest - ethers.parseUnits("1", 10));
         });
 
         it("Cannot withdraw more fees than collected", async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
-            await token.connect(rta).setFeeParameters(0, ethers.parseEther("1"), [ethers.ZeroAddress]);
+            await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
+            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 18), [ethers.ZeroAddress]);
 
             // Collect 1 ETH in fees
             await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
-                ethers.parseEther("100"),
+                ethers.parseUnits("100", 10),
                 ethers.ZeroAddress,
-                ethers.parseEther("1"),
-                { value: ethers.parseEther("1") }
+                ethers.parseUnits("1", 10),
+                { value: ethers.parseUnits("1", 10) }
             );
 
             // Try to withdraw 2 ETH
             await expect(
                 token.connect(rta).withdrawFees(
                     ethers.ZeroAddress,
-                    ethers.parseEther("2"),
+                    ethers.parseUnits("2", 10),
                     rta.address
                 )
             ).to.be.revertedWithCustomError(token, "ERC20InsufficientBalance");
@@ -256,14 +256,14 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
 
     describe("Invariant 6: Transfer Request State Machine", function () {
         it("Transfer requests follow valid state transitions", async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
+            await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
             await token.connect(rta).setFeeParameters(0, 0, [ethers.ZeroAddress]);
 
             // Create request (Pending)
             const tx = await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
-                ethers.parseEther("100"),
+                ethers.parseUnits("100", 10),
                 ethers.ZeroAddress,
                 0
             );
@@ -290,13 +290,13 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
         });
 
         it("Rejected requests cannot be processed", async function () {
-            await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
+            await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
             await token.connect(rta).setFeeParameters(0, 0, [ethers.ZeroAddress]);
 
             const tx = await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
-                ethers.parseEther("100"),
+                ethers.parseUnits("100", 10),
                 ethers.ZeroAddress,
                 0
             );
@@ -350,24 +350,24 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
         it("Should maintain invariants under multiple rapid operations", async function () {
             // Mint to multiple users
             for (const user of users) {
-                await token.connect(rta).mint(user.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
+                await token.connect(rta).mint(user.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
             }
 
             const initialTotalSupply = await token.totalSupply();
 
             // Perform multiple transfers
-            await token.connect(rta).transferFromRegulated(alice.address, bob.address, ethers.parseEther("10"), REG_US_A, issuanceDate);
-            await token.connect(rta).transferFromRegulated(bob.address, carol.address, ethers.parseEther("20"), REG_US_A, issuanceDate);
-            await token.connect(rta).transferFromRegulated(carol.address, dave.address, ethers.parseEther("15"), REG_US_A, issuanceDate);
+            await token.connect(rta).transferFromRegulated(alice.address, bob.address, ethers.parseUnits("10", 10), REG_US_A, issuanceDate);
+            await token.connect(rta).transferFromRegulated(bob.address, carol.address, ethers.parseUnits("20", 10), REG_US_A, issuanceDate);
+            await token.connect(rta).transferFromRegulated(carol.address, dave.address, ethers.parseUnits("15", 10), REG_US_A, issuanceDate);
 
             // Total supply unchanged
             expect(await token.totalSupply()).to.equal(initialTotalSupply);
 
             // Burn from one user
-            await token.connect(rta).burnFrom(dave.address, ethers.parseEther("5"));
+            await token.connect(rta).burnFrom(dave.address, ethers.parseUnits("5", 10));
 
             // Total supply decreased by burn amount
-            expect(await token.totalSupply()).to.equal(initialTotalSupply - ethers.parseEther("5"));
+            expect(await token.totalSupply()).to.equal(initialTotalSupply - ethers.parseUnits("5", 10));
 
             // Sum of all balances equals total supply
             let balanceSum = 0n;

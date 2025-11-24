@@ -28,7 +28,7 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
         ERC1450Upgradeable = await ethers.getContractFactory("ERC1450Upgradeable");
         token = await upgrades.deployProxy(
             ERC1450Upgradeable,
-            ["Test Security Token", "TST", 18, owner.address, rtaProxyAddress],
+            ["Test Security Token", "TST", 10, owner.address, rtaProxyAddress],
             { initializer: 'initialize', kind: 'uups' }
         );
         await token.waitForDeployment();
@@ -38,15 +38,15 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
     describe("Transfer Request System - Complete Flow", function () {
         beforeEach(async function () {
             // Mint tokens to holder1
-            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseEther("1000")
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseUnits("1000", 10)
             , REG_US_A, issuanceDate]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
         });
 
         it("Should handle complete transfer request lifecycle", async function () {
-            const transferAmount = ethers.parseEther("100");
-            const feeAmount = ethers.parseEther("0.01");
+            const transferAmount = ethers.parseUnits("100", 10);
+            const feeAmount = ethers.parseUnits("0.01", 10);
 
             // Create transfer request
             await expect(
@@ -77,7 +77,7 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
                 .withArgs(1, holder1.address, holder2.address, transferAmount);
 
             // Verify balances
-            expect(await token.balanceOf(holder1.address)).to.equal(ethers.parseEther("900"));
+            expect(await token.balanceOf(holder1.address)).to.equal(ethers.parseUnits("900", 10));
             expect(await token.balanceOf(holder2.address)).to.equal(transferAmount);
 
             // Check request status updated
@@ -90,10 +90,10 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
             await token.connect(holder1).requestTransferWithFee(
                 holder1.address,
                 holder2.address,
-                ethers.parseEther("100"),
+                ethers.parseUnits("100", 10),
                 ethers.ZeroAddress,
-                ethers.parseEther("0.01"),
-                { value: ethers.parseEther("0.01") }
+                ethers.parseUnits("0.01", 10),
+                { value: ethers.parseUnits("0.01", 10) }
             );
 
             // Reject with reason code
@@ -110,7 +110,7 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
                 .withArgs(1, 3, true);
 
             // Verify no transfer happened
-            expect(await token.balanceOf(holder1.address)).to.equal(ethers.parseEther("1000"));
+            expect(await token.balanceOf(holder1.address)).to.equal(ethers.parseUnits("1000", 10));
             expect(await token.balanceOf(holder2.address)).to.equal(0);
         });
 
@@ -119,7 +119,7 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
             await token.connect(holder1).requestTransferWithFee(
                 holder1.address,
                 holder2.address,
-                ethers.parseEther("50"),
+                ethers.parseUnits("50", 10),
                 ethers.ZeroAddress,
                 0,
                 { value: 0 }
@@ -142,7 +142,7 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
             // Set flat fee
             const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [
                 0, // flat fee type
-                ethers.parseEther("0.1"), // 0.1 ETH flat fee
+                ethers.parseUnits("0.1", 10), // 0.1 ETH flat fee
                 [ethers.ZeroAddress, holder1.address] // accepted tokens
             ]);
 
@@ -153,11 +153,11 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
             const fee = await token.getTransferFee(
                 holder1.address,
                 holder2.address,
-                ethers.parseEther("1000"), // amount doesn't matter for flat fee
+                ethers.parseUnits("1000", 10), // amount doesn't matter for flat fee
                 ethers.ZeroAddress
             );
 
-            expect(fee).to.equal(ethers.parseEther("0.1"));
+            expect(fee).to.equal(ethers.parseUnits("0.1", 10));
         });
 
         it("Should calculate percentage fees correctly", async function () {
@@ -175,23 +175,23 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
             const fee1 = await token.getTransferFee(
                 holder1.address,
                 holder2.address,
-                ethers.parseEther("1000"),
+                ethers.parseUnits("1000", 10),
                 ethers.ZeroAddress
             );
-            expect(fee1).to.equal(ethers.parseEther("10")); // 1% of 1000
+            expect(fee1).to.equal(ethers.parseUnits("10", 10)); // 1% of 1000
 
             const fee2 = await token.getTransferFee(
                 holder1.address,
                 holder2.address,
-                ethers.parseEther("500"),
+                ethers.parseUnits("500", 10),
                 ethers.ZeroAddress
             );
-            expect(fee2).to.equal(ethers.parseEther("5")); // 1% of 500
+            expect(fee2).to.equal(ethers.parseUnits("5", 10)); // 1% of 500
         });
 
         it("Should withdraw collected fees", async function () {
             // First collect some fees
-            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseEther("1000")
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseUnits("1000", 10)
             , REG_US_A, issuanceDate]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
@@ -200,19 +200,19 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
             await token.connect(holder1).requestTransferWithFee(
                 holder1.address,
                 holder2.address,
-                ethers.parseEther("100"),
+                ethers.parseUnits("100", 10),
                 ethers.ZeroAddress,
-                ethers.parseEther("0.5"),
-                { value: ethers.parseEther("0.5") }
+                ethers.parseUnits("0.5", 10),
+                { value: ethers.parseUnits("0.5", 10) }
             );
 
             // Check fee collected
-            expect(await token.collectedFees(ethers.ZeroAddress)).to.equal(ethers.parseEther("0.5"));
+            expect(await token.collectedFees(ethers.ZeroAddress)).to.equal(ethers.parseUnits("0.5", 10));
 
             // Withdraw fees
             const withdrawData = token.interface.encodeFunctionData("withdrawFees", [
                 ethers.ZeroAddress,
-                ethers.parseEther("0.5"),
+                ethers.parseUnits("0.5", 10),
                 feeRecipient.address
             ]);
 
@@ -222,7 +222,7 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
             await rtaProxy.connect(rta2).confirmOperation(1);
 
             const balanceAfter = await ethers.provider.getBalance(feeRecipient.address);
-            expect(balanceAfter - balanceBefore).to.equal(ethers.parseEther("0.5"));
+            expect(balanceAfter - balanceBefore).to.equal(ethers.parseUnits("0.5", 10));
 
             // Check fees cleared
             expect(await token.collectedFees(ethers.ZeroAddress)).to.equal(0);
@@ -266,7 +266,7 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
 
         it("Should allow broker to request transfers on behalf of holders", async function () {
             // Setup: Mint tokens and approve broker
-            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseEther("1000")
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseUnits("1000", 10)
             , REG_US_A, issuanceDate]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
@@ -283,13 +283,13 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
                 token.connect(broker1).requestTransferWithFee(
                     holder1.address,
                     holder2.address,
-                    ethers.parseEther("250"),
+                    ethers.parseUnits("250", 10),
                     ethers.ZeroAddress,
-                    ethers.parseEther("0.02"),
-                    { value: ethers.parseEther("0.02") }
+                    ethers.parseUnits("0.02", 10),
+                    { value: ethers.parseUnits("0.02", 10) }
                 )
             ).to.emit(token, "TransferRequested")
-                .withArgs(1, holder1.address, holder2.address, ethers.parseEther("250"), ethers.parseEther("0.02"), broker1.address);
+                .withArgs(1, holder1.address, holder2.address, ethers.parseUnits("250", 10), ethers.parseUnits("0.02", 10), broker1.address);
 
             const request = await token.transferRequests(1);
             expect(request.requestedBy).to.equal(broker1.address);
@@ -299,7 +299,7 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
     describe("Account Freezing", function () {
         beforeEach(async function () {
             // Mint tokens for testing
-            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseEther("1000")
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseUnits("1000", 10)
             , REG_US_A, issuanceDate]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
@@ -323,7 +323,7 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
             const transferData = token.interface.encodeFunctionData("transferFrom", [
                 holder1.address,
                 holder2.address,
-                ethers.parseEther("100")
+                ethers.parseUnits("100", 10)
             ]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, transferData, 0);
 
@@ -375,42 +375,42 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
             ).to.be.revertedWithCustomError(token, "ERC1450OnlyRTA");
 
             // Mint through RTA
-            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseEther("500")
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseUnits("500", 10)
             , REG_US_A, issuanceDate]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
 
-            expect(await token.balanceOf(holder1.address)).to.equal(ethers.parseEther("500"));
-            expect(await token.totalSupply()).to.equal(ethers.parseEther("500"));
+            expect(await token.balanceOf(holder1.address)).to.equal(ethers.parseUnits("500", 10));
+            expect(await token.totalSupply()).to.equal(ethers.parseUnits("500", 10));
         });
 
         it("Should only allow RTA to burn", async function () {
             // First mint some tokens
-            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseEther("1000")
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseUnits("1000", 10)
             , REG_US_A, issuanceDate]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
 
             // Try direct burn (should fail)
             await expect(
-                token.connect(nonRTA).burnFrom(holder1.address, ethers.parseEther("100"))
+                token.connect(nonRTA).burnFrom(holder1.address, ethers.parseUnits("100", 10))
             ).to.be.revertedWithCustomError(token, "ERC1450OnlyRTA");
 
             // Burn through RTA
             const burnData = token.interface.encodeFunctionData("burnFrom", [
                 holder1.address,
-                ethers.parseEther("300")
+                ethers.parseUnits("300", 10)
             ]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, burnData, 0);
             await rtaProxy.connect(rta2).confirmOperation(1);
 
-            expect(await token.balanceOf(holder1.address)).to.equal(ethers.parseEther("700"));
-            expect(await token.totalSupply()).to.equal(ethers.parseEther("700"));
+            expect(await token.balanceOf(holder1.address)).to.equal(ethers.parseUnits("700", 10));
+            expect(await token.totalSupply()).to.equal(ethers.parseUnits("700", 10));
         });
 
         it("Should revert burning more than balance", async function () {
             // Mint first
-            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseEther("100")
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseUnits("100", 10)
             , REG_US_A, issuanceDate]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
@@ -418,7 +418,7 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
             // Try to burn more than balance
             const burnData = token.interface.encodeFunctionData("burnFrom", [
                 holder1.address,
-                ethers.parseEther("200") // More than balance
+                ethers.parseUnits("200", 10) // More than balance
             ]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, burnData, 0);
 
@@ -474,7 +474,7 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
 
     describe("Edge Cases and Error Conditions", function () {
         it("Should handle zero amount transfers", async function () {
-            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseEther("100")
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseUnits("100", 10)
             , REG_US_A, issuanceDate]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
@@ -495,12 +495,12 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
             await rtaProxy.connect(rta2).confirmOperation(1);
 
             // Balances should be unchanged
-            expect(await token.balanceOf(holder1.address)).to.equal(ethers.parseEther("100"));
+            expect(await token.balanceOf(holder1.address)).to.equal(ethers.parseUnits("100", 10));
             expect(await token.balanceOf(holder2.address)).to.equal(0);
         });
 
         it("Should reject invalid fee tokens", async function () {
-            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseEther("100")
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseUnits("100", 10)
             , REG_US_A, issuanceDate]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
@@ -512,7 +512,7 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
                 token.connect(holder1).requestTransferWithFee(
                     holder1.address,
                     holder2.address,
-                    ethers.parseEther("10"),
+                    ethers.parseUnits("10", 10),
                     invalidToken, // Not accepted
                     100,
                     { value: 0 }
@@ -521,7 +521,7 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
         });
 
         it("Should handle multiple pending requests", async function () {
-            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseEther("1000")
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, ethers.parseUnits("1000", 10)
             , REG_US_A, issuanceDate]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
@@ -532,7 +532,7 @@ describe("ERC1450Upgradeable Comprehensive Tests", function () {
                 const tx = await token.connect(holder1).requestTransferWithFee(
                     holder1.address,
                     holder2.address,
-                    ethers.parseEther((10 * (i + 1)).toString()),
+                    ethers.parseUnits((10 * (i + 1, 10)).toString(), 10),
                     ethers.ZeroAddress,
                     0,
                     { value: 0 }

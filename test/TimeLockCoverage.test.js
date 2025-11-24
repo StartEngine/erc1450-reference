@@ -13,8 +13,8 @@ describe("Time-Lock Coverage Tests - Reach 90%+", function () {
     let RTAProxyUpgradeable, rtaProxyUpgradeable;
     let owner, rta, signer2, signer3, alice, bob;
 
-    const HIGH_VALUE = ethers.parseEther("1000000"); // 1M tokens - meets threshold
-    const LOW_VALUE = ethers.parseEther("100"); // Below threshold
+    const HIGH_VALUE = ethers.parseUnits("1000000", 10); // 1M tokens - meets threshold
+    const LOW_VALUE = ethers.parseUnits("100", 10); // Below threshold
     const TIME_LOCK_DURATION = 24 * 60 * 60; // 24 hours
 
     beforeEach(async function () {
@@ -27,7 +27,7 @@ describe("Time-Lock Coverage Tests - Reach 90%+", function () {
 
         // Deploy standard ERC1450 token
         ERC1450 = await ethers.getContractFactory("ERC1450");
-        token = await ERC1450.deploy("Security Token", "SEC", 18, owner.address, rtaProxy.target);
+        token = await ERC1450.deploy("Security Token", "SEC", 10, owner.address, rtaProxy.target);
         await token.waitForDeployment();
 
         // Deploy upgradeable RTAProxy
@@ -43,7 +43,7 @@ describe("Time-Lock Coverage Tests - Reach 90%+", function () {
         ERC1450Upgradeable = await ethers.getContractFactory("ERC1450Upgradeable");
         tokenUpgradeable = await upgrades.deployProxy(
             ERC1450Upgradeable,
-            ["Security Token", "SEC", 18, owner.address, rtaProxyUpgradeable.target],
+            ["Security Token", "SEC", 10, owner.address, rtaProxyUpgradeable.target],
             { initializer: "initialize" }
         );
         await tokenUpgradeable.waitForDeployment();
@@ -328,7 +328,7 @@ describe("Time-Lock Coverage Tests - Reach 90%+", function () {
 
         it("Should verify time-lock branch with exact threshold amount", async function () {
             // Test with exactly 1M tokens (the threshold)
-            const exactThreshold = ethers.parseEther("1000000");
+            const exactThreshold = ethers.parseUnits("1000000", 10);
 
             const transferData = tokenUpgradeable.interface.encodeFunctionData("transferFromRegulated", [
                 alice.address,

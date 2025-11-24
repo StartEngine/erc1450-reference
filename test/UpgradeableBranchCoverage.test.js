@@ -25,7 +25,7 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
         ERC1450Upgradeable = await ethers.getContractFactory("ERC1450Upgradeable");
         token = await upgrades.deployProxy(
             ERC1450Upgradeable,
-            ["Test Security Token", "TST", 18, issuer.address, rta.address],
+            ["Test Security Token", "TST", 10, issuer.address, rta.address],
             { kind: "uups" }
         );
         await token.waitForDeployment();
@@ -38,7 +38,7 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
                 await expect(
                     upgrades.deployProxy(
                         NewToken,
-                        ["Test", "TST", 18, issuer.address, ethers.ZeroAddress],
+                        ["Test", "TST", 10, issuer.address, ethers.ZeroAddress],
                         { kind: "uups" }
                     )
                 ).to.be.revertedWith("ERC1450: Invalid transfer agent");
@@ -46,7 +46,7 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
 
             it("Should revert when calling initialize twice", async function () {
                 await expect(
-                    token.initialize("Test2", "TST2", 18, issuer.address, rta.address)
+                    token.initialize("Test2", "TST2", 10, issuer.address, rta.address)
                 ).to.be.revertedWithCustomError(token, "InvalidInitialization");
             });
         });
@@ -63,7 +63,7 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
             it("Should revert when setting transfer agent to zero address", async function () {
                 const newToken = await upgrades.deployProxy(
                     ERC1450Upgradeable,
-                    ["Test", "TST", 18, issuer.address, issuer.address],
+                    ["Test", "TST", 10, issuer.address, issuer.address],
                     { kind: "uups" }
                 );
                 await newToken.waitForDeployment();
@@ -76,7 +76,7 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
             it("Should lock transfer agent when set to contract address", async function () {
                 const newToken = await upgrades.deployProxy(
                     ERC1450Upgradeable,
-                    ["Test", "TST", 18, issuer.address, alice.address], // EOA
+                    ["Test", "TST", 10, issuer.address, alice.address], // EOA
                     { kind: "uups" }
                 );
                 await newToken.waitForDeployment();
@@ -93,8 +93,8 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
 
         describe("requestTransferWithFee validations", function () {
             beforeEach(async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
-                await token.connect(rta).setFeeParameters(0, ethers.parseEther("1"), [ethers.ZeroAddress]);
+                await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
+                await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 18), [ethers.ZeroAddress]);
             });
 
             it("Should revert when from address is zero", async function () {
@@ -102,10 +102,10 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
                     token.connect(alice).requestTransferWithFee(
                         ethers.ZeroAddress,
                         bob.address,
-                        ethers.parseEther("100"),
+                        ethers.parseUnits("100", 10),
                         ethers.ZeroAddress,
-                        ethers.parseEther("1"),
-                        { value: ethers.parseEther("1") }
+                        ethers.parseUnits("1", 10),
+                        { value: ethers.parseUnits("1", 10) }
                     )
                 ).to.be.revertedWithCustomError(token, "ERC20InvalidReceiver");
             });
@@ -115,10 +115,10 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
                     token.connect(alice).requestTransferWithFee(
                         alice.address,
                         ethers.ZeroAddress,
-                        ethers.parseEther("100"),
+                        ethers.parseUnits("100", 10),
                         ethers.ZeroAddress,
-                        ethers.parseEther("1"),
-                        { value: ethers.parseEther("1") }
+                        ethers.parseUnits("1", 10),
+                        { value: ethers.parseUnits("1", 10) }
                     )
                 ).to.be.revertedWithCustomError(token, "ERC20InvalidReceiver");
             });
@@ -128,10 +128,10 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
                     token.connect(nonBroker).requestTransferWithFee(
                         alice.address,
                         bob.address,
-                        ethers.parseEther("100"),
+                        ethers.parseUnits("100", 10),
                         ethers.ZeroAddress,
-                        ethers.parseEther("1"),
-                        { value: ethers.parseEther("1") }
+                        ethers.parseUnits("1", 10),
+                        { value: ethers.parseUnits("1", 10) }
                     )
                 ).to.be.revertedWithCustomError(token, "OwnableUnauthorizedAccount");
             });
@@ -141,10 +141,10 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
                     token.connect(alice).requestTransferWithFee(
                         alice.address,
                         bob.address,
-                        ethers.parseEther("100"),
+                        ethers.parseUnits("100", 10),
                         ethers.ZeroAddress,
-                        ethers.parseEther("1"),
-                        { value: ethers.parseEther("0.5") }
+                        ethers.parseUnits("1", 10),
+                        { value: ethers.parseUnits("0.5", 10) }
                     )
                 ).to.be.revertedWithCustomError(token, "ERC20InsufficientBalance");
             });
@@ -155,10 +155,10 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
                 const tx = await token.connect(bob).requestTransferWithFee(
                     alice.address,
                     nonBroker.address,
-                    ethers.parseEther("100"),
+                    ethers.parseUnits("100", 10),
                     ethers.ZeroAddress,
-                    ethers.parseEther("1"),
-                    { value: ethers.parseEther("1") }
+                    ethers.parseUnits("1", 10),
+                    { value: ethers.parseUnits("1", 10) }
                 );
 
                 expect(tx).to.emit(token, "TransferRequested");
@@ -170,7 +170,7 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
                 const tx = await token.connect(alice).requestTransferWithFee(
                     alice.address,
                     bob.address,
-                    ethers.parseEther("100"),
+                    ethers.parseUnits("100", 10),
                     ethers.ZeroAddress,
                     0
                 );
@@ -182,7 +182,7 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
         describe("recoverToken validation", function () {
             it("Should revert when recovering the security token itself", async function () {
                 await expect(
-                    token.connect(rta).recoverToken(token.target, ethers.parseEther("100"))
+                    token.connect(rta).recoverToken(token.target, ethers.parseUnits("100", 10))
                 ).to.be.revertedWithCustomError(token, "ERC1450OnlyRTA");
             });
 
@@ -190,11 +190,11 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
                 // Send ETH to contract
                 await alice.sendTransaction({
                     to: token.target,
-                    value: ethers.parseEther("1")
+                    value: ethers.parseUnits("0.1", 18) // 0.1 ETH
                 });
 
                 const rtaBalanceBefore = await ethers.provider.getBalance(rta.address);
-                await token.connect(rta).recoverToken(ethers.ZeroAddress, ethers.parseEther("1"));
+                await token.connect(rta).recoverToken(ethers.ZeroAddress, ethers.parseUnits("0.1", 18));
                 const rtaBalanceAfter = await ethers.provider.getBalance(rta.address);
 
                 expect(rtaBalanceAfter).to.be.gt(rtaBalanceBefore);
@@ -231,7 +231,7 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
 
                 await token.connect(rta).setFeeParameters(
                     0,
-                    ethers.parseEther("1"),
+                    ethers.parseUnits("1", 10),
                     [ethers.ZeroAddress, token1.target]
                 );
 
@@ -245,21 +245,21 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
                 const fee = await token.getTransferFee(
                     alice.address,
                     bob.address,
-                    ethers.parseEther("100"),
+                    ethers.parseUnits("100", 10),
                     ethers.ZeroAddress
                 );
 
-                expect(fee).to.equal(ethers.parseEther("1"));
+                expect(fee).to.equal(ethers.parseUnits("1", 10));
             });
 
             it("Should update request status to different states", async function () {
-                await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
+                await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
                 await token.connect(rta).setFeeParameters(0, 0, [ethers.ZeroAddress]);
 
                 const tx = await token.connect(alice).requestTransferWithFee(
                     alice.address,
                     bob.address,
-                    ethers.parseEther("100"),
+                    ethers.parseUnits("100", 10),
                     ethers.ZeroAddress,
                     0
                 );

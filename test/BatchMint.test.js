@@ -38,9 +38,9 @@ describe("ERC1450 BatchMint Functionality", function () {
         it("Should successfully batch mint to multiple recipients", async function () {
             const recipients = [alice.address, bob.address, charlie.address];
             const amounts = [
-                ethers.parseEther("100"),
-                ethers.parseEther("200"),
-                ethers.parseEther("300")
+                ethers.parseUnits("100", 10),
+                ethers.parseUnits("200", 10),
+                ethers.parseUnits("300", 10)
             ];
             const regulationTypes = [REG_A, REG_D, REG_A];
             const issuanceDates = [
@@ -57,17 +57,17 @@ describe("ERC1450 BatchMint Functionality", function () {
             );
 
             // Verify balances
-            expect(await token.balanceOf(alice.address)).to.equal(ethers.parseEther("100"));
-            expect(await token.balanceOf(bob.address)).to.equal(ethers.parseEther("200"));
-            expect(await token.balanceOf(charlie.address)).to.equal(ethers.parseEther("300"));
+            expect(await token.balanceOf(alice.address)).to.equal(ethers.parseUnits("100", 10));
+            expect(await token.balanceOf(bob.address)).to.equal(ethers.parseUnits("200", 10));
+            expect(await token.balanceOf(charlie.address)).to.equal(ethers.parseUnits("300", 10));
 
             // Verify total supply
-            expect(await token.totalSupply()).to.equal(ethers.parseEther("600"));
+            expect(await token.totalSupply()).to.equal(ethers.parseUnits("600", 10));
         });
 
         it("Should emit correct events for each mint in batch", async function () {
             const recipients = [alice.address, bob.address];
-            const amounts = [ethers.parseEther("100"), ethers.parseEther("200")];
+            const amounts = [ethers.parseUnits("100", 10), ethers.parseUnits("200", 10)];
             const regulationTypes = [REG_A, REG_D];
             const issuanceDate = Math.floor(Date.now() / 1000);
             const issuanceDates = [issuanceDate, issuanceDate];
@@ -99,9 +99,9 @@ describe("ERC1450 BatchMint Functionality", function () {
         it("Should handle same recipient multiple times in batch", async function () {
             const recipients = [alice.address, alice.address, alice.address];
             const amounts = [
-                ethers.parseEther("100"),
-                ethers.parseEther("200"),
-                ethers.parseEther("300")
+                ethers.parseUnits("100", 10),
+                ethers.parseUnits("200", 10),
+                ethers.parseUnits("300", 10)
             ];
             const regulationTypes = [REG_A, REG_D, REG_A];
             const issuanceDates = [
@@ -118,14 +118,14 @@ describe("ERC1450 BatchMint Functionality", function () {
             );
 
             // Alice should receive total of all mints
-            expect(await token.balanceOf(alice.address)).to.equal(ethers.parseEther("600"));
+            expect(await token.balanceOf(alice.address)).to.equal(ethers.parseUnits("600", 10));
         });
     });
 
     describe("BatchMint Validation", function () {
         it("Should revert if arrays have different lengths", async function () {
             const recipients = [alice.address, bob.address];
-            const amounts = [ethers.parseEther("100")]; // Only 1 amount for 2 recipients
+            const amounts = [ethers.parseUnits("100", 10)]; // Only 1 amount for 2 recipients
             const regulationTypes = [REG_A, REG_D];
             const issuanceDates = [Math.floor(Date.now() / 1000), Math.floor(Date.now() / 1000)];
 
@@ -143,7 +143,7 @@ describe("ERC1450 BatchMint Functionality", function () {
         it("Should revert if batch is too large", async function () {
             // Create arrays with 101 elements (over the 100 limit)
             const recipients = new Array(101).fill(alice.address);
-            const amounts = new Array(101).fill(ethers.parseEther("1"));
+            const amounts = new Array(101).fill(ethers.parseUnits("1", 10));
             const regulationTypes = new Array(101).fill(REG_A);
             const issuanceDates = new Array(101).fill(Math.floor(Date.now() / 1000));
 
@@ -154,7 +154,7 @@ describe("ERC1450 BatchMint Functionality", function () {
 
         it("Should revert if non-RTA tries to batch mint", async function () {
             const recipients = [alice.address];
-            const amounts = [ethers.parseEther("100")];
+            const amounts = [ethers.parseUnits("100", 10)];
             const regulationTypes = [REG_A];
             const issuanceDates = [Math.floor(Date.now() / 1000)];
 
@@ -165,7 +165,7 @@ describe("ERC1450 BatchMint Functionality", function () {
 
         it("Should revert if any recipient is zero address", async function () {
             const recipients = [alice.address, ethers.ZeroAddress, bob.address];
-            const amounts = [ethers.parseEther("100"), ethers.parseEther("200"), ethers.parseEther("300")];
+            const amounts = [ethers.parseUnits("100", 10), ethers.parseUnits("200", 10), ethers.parseUnits("300", 10)];
             const regulationTypes = [REG_A, REG_D, REG_S];
             const issuanceDates = new Array(3).fill(Math.floor(Date.now() / 1000));
 
@@ -176,7 +176,7 @@ describe("ERC1450 BatchMint Functionality", function () {
 
         it("Should revert if any regulation type is 0", async function () {
             const recipients = [alice.address, bob.address];
-            const amounts = [ethers.parseEther("100"), ethers.parseEther("200")];
+            const amounts = [ethers.parseUnits("100", 10), ethers.parseUnits("200", 10)];
             const regulationTypes = [REG_A, 0]; // Invalid regulation type
             const issuanceDates = [Math.floor(Date.now() / 1000), Math.floor(Date.now() / 1000)];
 
@@ -187,7 +187,7 @@ describe("ERC1450 BatchMint Functionality", function () {
 
         it("Should revert if any issuance date is in the future", async function () {
             const recipients = [alice.address, bob.address];
-            const amounts = [ethers.parseEther("100"), ethers.parseEther("200")];
+            const amounts = [ethers.parseUnits("100", 10), ethers.parseUnits("200", 10)];
             const regulationTypes = [REG_A, REG_D];
             // Use block timestamp to avoid issues with time manipulation in other tests
             const currentBlock = await ethers.provider.getBlock('latest');
@@ -204,7 +204,7 @@ describe("ERC1450 BatchMint Functionality", function () {
     describe("BatchMint Regulation Tracking", function () {
         it("Should correctly track regulation types for batch minted tokens", async function () {
             const recipients = [alice.address, bob.address];
-            const amounts = [ethers.parseEther("100"), ethers.parseEther("200")];
+            const amounts = [ethers.parseUnits("100", 10), ethers.parseUnits("200", 10)];
             const regulationTypes = [REG_A, REG_D];
             const issuanceDates = [
                 Math.floor(Date.now() / 1000) - 86400,
@@ -219,28 +219,28 @@ describe("ERC1450 BatchMint Functionality", function () {
             );
 
             // Check regulation supply
-            expect(await token.getRegulationSupply(REG_A)).to.equal(ethers.parseEther("100"));
-            expect(await token.getRegulationSupply(REG_D)).to.equal(ethers.parseEther("200"));
+            expect(await token.getRegulationSupply(REG_A)).to.equal(ethers.parseUnits("100", 10));
+            expect(await token.getRegulationSupply(REG_D)).to.equal(ethers.parseUnits("200", 10));
 
             // Check holder regulations for Alice
             const aliceRegs = await token.getHolderRegulations(alice.address);
             expect(aliceRegs.regulationTypes[0]).to.equal(REG_A);
-            expect(aliceRegs.amounts[0]).to.equal(ethers.parseEther("100"));
+            expect(aliceRegs.amounts[0]).to.equal(ethers.parseUnits("100", 10));
             expect(aliceRegs.issuanceDates[0]).to.equal(issuanceDates[0]);
 
             // Check holder regulations for Bob
             const bobRegs = await token.getHolderRegulations(bob.address);
             expect(bobRegs.regulationTypes[0]).to.equal(REG_D);
-            expect(bobRegs.amounts[0]).to.equal(ethers.parseEther("200"));
+            expect(bobRegs.amounts[0]).to.equal(ethers.parseUnits("200", 10));
             expect(bobRegs.issuanceDates[0]).to.equal(issuanceDates[1]);
         });
 
         it("Should handle mixed regulation types in single batch", async function () {
             const recipients = [alice.address, alice.address, alice.address];
             const amounts = [
-                ethers.parseEther("100"),
-                ethers.parseEther("200"),
-                ethers.parseEther("50")
+                ethers.parseUnits("100", 10),
+                ethers.parseUnits("200", 10),
+                ethers.parseUnits("50", 10)
             ];
             const regulationTypes = [REG_A, REG_D, REG_CF];
             const issuanceDates = [
@@ -259,12 +259,12 @@ describe("ERC1450 BatchMint Functionality", function () {
             // Alice should have tokens under all three regulations
             const aliceRegs = await token.getHolderRegulations(alice.address);
             expect(aliceRegs.regulationTypes).to.have.lengthOf(3);
-            expect(aliceRegs.amounts[0]).to.equal(ethers.parseEther("100"));
-            expect(aliceRegs.amounts[1]).to.equal(ethers.parseEther("200"));
-            expect(aliceRegs.amounts[2]).to.equal(ethers.parseEther("50"));
+            expect(aliceRegs.amounts[0]).to.equal(ethers.parseUnits("100", 10));
+            expect(aliceRegs.amounts[1]).to.equal(ethers.parseUnits("200", 10));
+            expect(aliceRegs.amounts[2]).to.equal(ethers.parseUnits("50", 10));
 
             // Total balance should be sum of all
-            expect(await token.balanceOf(alice.address)).to.equal(ethers.parseEther("350"));
+            expect(await token.balanceOf(alice.address)).to.equal(ethers.parseUnits("350", 10));
         });
     });
 
@@ -275,7 +275,7 @@ describe("ERC1450 BatchMint Functionality", function () {
             const recipients = new Array(batchSize).fill(null).map((_, i) =>
                 signers[i % signers.length].address
             );
-            const amounts = new Array(batchSize).fill(ethers.parseEther("10"));
+            const amounts = new Array(batchSize).fill(ethers.parseUnits("10", 10));
             const regulationTypes = new Array(batchSize).fill(null).map((_, i) =>
                 (i % 4) + 1 // Cycles through REG_A, REG_D, REG_S, REG_CF
             );
@@ -297,12 +297,12 @@ describe("ERC1450 BatchMint Functionality", function () {
             console.log(`        Gas used for ${batchSize} mints:`, receipt.gasUsed.toString());
 
             // Verify total supply
-            expect(await token.totalSupply()).to.equal(ethers.parseEther("1000"));
+            expect(await token.totalSupply()).to.equal(ethers.parseUnits("1000", 10));
         });
 
         it("Should be more gas efficient than individual mints", async function () {
             const recipients = [alice.address, bob.address, charlie.address];
-            const amounts = [ethers.parseEther("100"), ethers.parseEther("200"), ethers.parseEther("300")];
+            const amounts = [ethers.parseUnits("100", 10), ethers.parseUnits("200", 10), ethers.parseUnits("300", 10)];
             const regulationTypes = [REG_A, REG_D, REG_S];
             const issuanceDates = new Array(3).fill(Math.floor(Date.now() / 1000));
 

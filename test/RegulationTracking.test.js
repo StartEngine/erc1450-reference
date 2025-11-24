@@ -54,7 +54,7 @@ describe("ERC1450 Regulation Tracking", function () {
 
   describe("Minting with Regulation Tracking", function () {
     it("Should mint tokens with regulation type and issuance date", async function () {
-      const amount = ethers.parseEther("1000");
+      const amount = ethers.parseUnits("1000", 10);
       const issuanceDate = Math.floor(Date.now() / 1000) - 86400 * 30; // 30 days ago
 
       // Prepare mint transaction
@@ -91,8 +91,8 @@ describe("ERC1450 Regulation Tracking", function () {
     });
 
     it("Should track multiple regulation types for same holder", async function () {
-      const amount1 = ethers.parseEther("100");
-      const amount2 = ethers.parseEther("200");
+      const amount1 = ethers.parseUnits("100", 10);
+      const amount2 = ethers.parseUnits("200", 10);
       const issuanceDate1 = Math.floor(Date.now() / 1000) - 86400 * 60; // 60 days ago
       const issuanceDate2 = Math.floor(Date.now() / 1000) - 86400 * 30; // 30 days ago
 
@@ -139,7 +139,7 @@ describe("ERC1450 Regulation Tracking", function () {
     });
 
     it("Should track regulation supply correctly", async function () {
-      const amount = ethers.parseEther("500");
+      const amount = ethers.parseUnits("500", 10);
       const issuanceDate = Math.floor(Date.now() / 1000);
 
       // Mint tokens
@@ -166,7 +166,7 @@ describe("ERC1450 Regulation Tracking", function () {
   describe("Burning with Regulation Tracking", function () {
     beforeEach(async function () {
       // Mint some tokens first
-      const amount = ethers.parseEther("300");
+      const amount = ethers.parseUnits("300", 10);
       const issuanceDate = Math.floor(Date.now() / 1000) - 86400 * 30;
 
       const mintData = erc1450.interface.encodeFunctionData("mint", [
@@ -185,7 +185,7 @@ describe("ERC1450 Regulation Tracking", function () {
     });
 
     it("Should burn tokens using FIFO and emit TokensBurned events", async function () {
-      const burnAmount = ethers.parseEther("100");
+      const burnAmount = ethers.parseUnits("100", 10);
 
       // Burn tokens
       const burnData = erc1450.interface.encodeFunctionData("burnFrom", [
@@ -211,13 +211,13 @@ describe("ERC1450 Regulation Tracking", function () {
       expect(tokensBurnedEvent).to.not.be.undefined;
 
       // Verify new balance
-      const expectedBalance = ethers.parseEther("200");
+      const expectedBalance = ethers.parseUnits("200", 10);
       expect(await erc1450.balanceOf(holder1.address)).to.equal(expectedBalance);
     });
 
     it("Should burn specific regulation tokens", async function () {
       // First mint some more Reg A tokens
-      const amountRegA = ethers.parseEther("100");
+      const amountRegA = ethers.parseUnits("100", 10);
       const issuanceDate = Math.floor(Date.now() / 1000);
 
       const mintData = erc1450.interface.encodeFunctionData("mint", [
@@ -235,7 +235,7 @@ describe("ERC1450 Regulation Tracking", function () {
       await rtaProxy.connect(signer2).confirmOperation(mintOpId);
 
       // Now burn only Reg A tokens
-      const burnAmount = ethers.parseEther("50");
+      const burnAmount = ethers.parseUnits("50", 10);
       const burnData = erc1450.interface.encodeFunctionData("burnFromRegulation", [
         holder1.address,
         burnAmount,
@@ -251,20 +251,20 @@ describe("ERC1450 Regulation Tracking", function () {
 
       // Check regulation supply
       const supplyRegA = await erc1450.getRegulationSupply(REG_US_A_TIER_2);
-      const expectedRegA = ethers.parseEther("50"); // 100 - 50
+      const expectedRegA = ethers.parseUnits("50", 10); // 100 - 50
       expect(supplyRegA).to.equal(expectedRegA);
 
       // Check that Reg CF tokens were not touched
       const supplyRegCF = await erc1450.getRegulationSupply(REG_US_CF);
-      expect(supplyRegCF).to.equal(ethers.parseEther("300"));
+      expect(supplyRegCF).to.equal(ethers.parseUnits("300", 10));
     });
   });
 
   describe("Regulated Transfer Tracking", function () {
     it("Should transfer tokens using RTA-chosen strategy with transferFromRegulated", async function () {
       // Mint tokens with different regulations and dates
-      const amount1 = ethers.parseEther("100");
-      const amount2 = ethers.parseEther("200");
+      const amount1 = ethers.parseUnits("100", 10);
+      const amount2 = ethers.parseUnits("200", 10);
       const issuanceDate1 = Math.floor(Date.now() / 1000) - 86400 * 60; // Older
       const issuanceDate2 = Math.floor(Date.now() / 1000) - 86400 * 30; // Newer
 
@@ -301,7 +301,7 @@ describe("ERC1450 Regulation Tracking", function () {
 
       // RTA chooses to transfer specific batches (demonstrating control over strategy)
       // First transfer 100 RegCF tokens
-      const transferAmount = ethers.parseEther("100");
+      const transferAmount = ethers.parseUnits("100", 10);
       const transferData = erc1450.interface.encodeFunctionData("transferFromRegulated", [
         holder1.address,
         holder2.address,
@@ -324,7 +324,7 @@ describe("ERC1450 Regulation Tracking", function () {
 
       // Verify holder1's remaining balance
       const holder1Balance = await erc1450.balanceOf(holder1.address);
-      expect(holder1Balance).to.equal(ethers.parseEther("200")); // 300 - 100
+      expect(holder1Balance).to.equal(ethers.parseUnits("200", 10)); // 300 - 100
 
       // Verify holder2's received balance
       const holder2Balance = await erc1450.balanceOf(holder2.address);
@@ -336,7 +336,7 @@ describe("ERC1450 Regulation Tracking", function () {
     it("Should reject mint with invalid regulation type", async function () {
       const mintData = erc1450.interface.encodeFunctionData("mint", [
         holder1.address,
-        ethers.parseEther("100"),
+        ethers.parseUnits("100", 10),
         0, // Invalid regulation type
         Math.floor(Date.now() / 1000)
       ]);
@@ -366,7 +366,7 @@ describe("ERC1450 Regulation Tracking", function () {
 
       const mintData = erc1450.interface.encodeFunctionData("mint", [
         holder1.address,
-        ethers.parseEther("100"),
+        ethers.parseUnits("100", 10),
         REG_US_CF,
         futureDate
       ]);

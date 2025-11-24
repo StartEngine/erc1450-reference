@@ -71,7 +71,7 @@ describe("RTAProxy Multi-Sig", function () {
 
     describe("Operation Submission", function () {
         it("Should allow signer to submit operation", async function () {
-            const data = token.interface.encodeFunctionData("mint", [signer1.address, ethers.parseEther("1000")
+            const data = token.interface.encodeFunctionData("mint", [signer1.address, ethers.parseUnits("1000", 10)
             , REG_US_A, issuanceDate]);
 
             await expect(
@@ -88,7 +88,7 @@ describe("RTAProxy Multi-Sig", function () {
         });
 
         it("Should auto-confirm from submitter", async function () {
-            const data = token.interface.encodeFunctionData("mint", [signer1.address, ethers.parseEther("1000")
+            const data = token.interface.encodeFunctionData("mint", [signer1.address, ethers.parseUnits("1000", 10)
             , REG_US_A, issuanceDate]);
 
             await rtaProxy.connect(signer1).submitOperation(token.target, data, 0);
@@ -100,7 +100,7 @@ describe("RTAProxy Multi-Sig", function () {
         });
 
         it("Should revert if non-signer tries to submit", async function () {
-            const data = token.interface.encodeFunctionData("mint", [signer1.address, ethers.parseEther("1000")
+            const data = token.interface.encodeFunctionData("mint", [signer1.address, ethers.parseUnits("1000", 10)
             , REG_US_A, issuanceDate]);
 
             await expect(
@@ -114,7 +114,7 @@ describe("RTAProxy Multi-Sig", function () {
         let mintData;
 
         beforeEach(async function () {
-            mintData = token.interface.encodeFunctionData("mint", [signer1.address, ethers.parseEther("1000")
+            mintData = token.interface.encodeFunctionData("mint", [signer1.address, ethers.parseUnits("1000", 10)
             , REG_US_A, issuanceDate]);
 
             const tx = await rtaProxy.connect(signer1).submitOperation(token.target, mintData, 0);
@@ -137,7 +137,7 @@ describe("RTAProxy Multi-Sig", function () {
                 .withArgs(operationId);
 
             // Check the mint was executed
-            expect(await token.balanceOf(signer1.address)).to.equal(ethers.parseEther("1000"));
+            expect(await token.balanceOf(signer1.address)).to.equal(ethers.parseUnits("1000", 10));
 
             // Check operation is marked as executed
             const op = await rtaProxy.getOperation(operationId);
@@ -171,7 +171,7 @@ describe("RTAProxy Multi-Sig", function () {
         let operationId;
 
         beforeEach(async function () {
-            const mintData = token.interface.encodeFunctionData("mint", [signer1.address, ethers.parseEther("1000")
+            const mintData = token.interface.encodeFunctionData("mint", [signer1.address, ethers.parseUnits("1000", 10)
             , REG_US_A, issuanceDate]);
 
             await rtaProxy.connect(signer1).submitOperation(token.target, mintData, 0);
@@ -210,7 +210,7 @@ describe("RTAProxy Multi-Sig", function () {
         let operationId;
 
         beforeEach(async function () {
-            const mintData = token.interface.encodeFunctionData("mint", [signer1.address, ethers.parseEther("1000")
+            const mintData = token.interface.encodeFunctionData("mint", [signer1.address, ethers.parseUnits("1000", 10)
             , REG_US_A, issuanceDate]);
 
             // Submit but don't get second confirmation yet
@@ -226,7 +226,7 @@ describe("RTAProxy Multi-Sig", function () {
             const op = await rtaProxy.getOperation(operationId);
             expect(op[4]).to.be.true; // executed
 
-            expect(await token.balanceOf(signer1.address)).to.equal(ethers.parseEther("1000"));
+            expect(await token.balanceOf(signer1.address)).to.equal(ethers.parseUnits("1000", 10));
         });
 
         it("Should revert execution without enough confirmations", async function () {
@@ -239,7 +239,7 @@ describe("RTAProxy Multi-Sig", function () {
 
     describe("Time-Lock", function () {
         it("Should detect operations requiring time-lock", async function () {
-            const highValue = ethers.parseEther("1000000"); // 1M tokens = threshold
+            const highValue = ethers.parseUnits("1000000", 10); // 1M tokens = threshold
             const transferData = token.interface.encodeFunctionData("transferFromRegulated", [
                 signer1.address,
                 signer2.address,
@@ -252,7 +252,7 @@ describe("RTAProxy Multi-Sig", function () {
             expect(await rtaProxy.requiresTimeLock(transferData)).to.be.true;
 
             // Low value transfers should not require time-lock
-            const lowValue = ethers.parseEther("100");
+            const lowValue = ethers.parseUnits("100", 10);
             const lowValueData = token.interface.encodeFunctionData("transferFromRegulated", [
                 signer1.address,
                 signer2.address,
@@ -345,7 +345,7 @@ describe("RTAProxy Multi-Sig", function () {
     describe("Complex RTA Operations", function () {
         beforeEach(async function () {
             // Give RTAProxy ability to mint
-            const mintData = token.interface.encodeFunctionData("mint", [signer1.address, ethers.parseEther("10000")
+            const mintData = token.interface.encodeFunctionData("mint", [signer1.address, ethers.parseUnits("10000", 10)
             , REG_US_A, issuanceDate]);
 
             await rtaProxy.connect(signer1).submitOperation(token.target, mintData, 0);
@@ -357,7 +357,7 @@ describe("RTAProxy Multi-Sig", function () {
             await token.connect(signer1).requestTransferWithFee(
                 signer1.address,
                 signer2.address,
-                ethers.parseEther("100"),
+                ethers.parseUnits("100", 10),
                 ethers.ZeroAddress,
                 0
             );
@@ -368,7 +368,7 @@ describe("RTAProxy Multi-Sig", function () {
             await rtaProxy.connect(signer1).submitOperation(token.target, processData, 0);
             await rtaProxy.connect(signer2).confirmOperation(1);
 
-            expect(await token.balanceOf(signer2.address)).to.equal(ethers.parseEther("100"));
+            expect(await token.balanceOf(signer2.address)).to.equal(ethers.parseUnits("100", 10));
         });
 
         it("Should execute court orders", async function () {
@@ -376,14 +376,14 @@ describe("RTAProxy Multi-Sig", function () {
             const courtOrderData = token.interface.encodeFunctionData("executeCourtOrder", [
                 signer1.address,
                 signer2.address,
-                ethers.parseEther("5000"),
+                ethers.parseUnits("5000", 10),
                 documentHash
             ]);
 
             await rtaProxy.connect(signer1).submitOperation(token.target, courtOrderData, 0);
             await rtaProxy.connect(signer2).confirmOperation(1);
 
-            expect(await token.balanceOf(signer2.address)).to.equal(ethers.parseEther("5000"));
+            expect(await token.balanceOf(signer2.address)).to.equal(ethers.parseUnits("5000", 10));
         });
 
         it("Should manage broker approvals", async function () {
@@ -408,7 +408,7 @@ describe("RTAProxy Multi-Sig", function () {
 
         it("Should handle failed operation execution", async function () {
             // Create an operation that will fail (mint to zero address)
-            const failData = token.interface.encodeFunctionData("mint", [ethers.ZeroAddress, ethers.parseEther("1000")
+            const failData = token.interface.encodeFunctionData("mint", [ethers.ZeroAddress, ethers.parseUnits("1000", 10)
             , REG_US_A, issuanceDate]);
 
             await rtaProxy.connect(signer1).submitOperation(token.target, failData, 0);

@@ -51,7 +51,7 @@ describe("Final 80% Push - Uncovered Branches", function () {
         const ERC1450Upgradeable = await ethers.getContractFactory("ERC1450Upgradeable");
         tokenUpgradeable = await upgrades.deployProxy(
             ERC1450Upgradeable,
-            ["Security Token Upgradeable", "SECU", 18, owner.address, await rtaProxyUpgradeable.getAddress()],
+            ["Security Token Upgradeable", "SECU", 10, owner.address, await rtaProxyUpgradeable.getAddress()],
             { initializer: 'initialize' }
         );
         await tokenUpgradeable.waitForDeployment();
@@ -63,21 +63,21 @@ describe("Final 80% Push - Uncovered Branches", function () {
         it("Should test updateRequestStatus function", async function () {
             // Mint tokens
             const mintData = token.interface.encodeFunctionData("mint", [
-                alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate1
+                alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate1
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, mintData, [rta1, rta2]);
 
             // Set fees
             const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseEther("0.01"), [ethers.ZeroAddress]
+                0, ethers.parseUnits("0.01", 10), [ethers.ZeroAddress]
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeData, [rta1, rta2]);
 
             // Create a transfer request
             await token.connect(alice).requestTransferWithFee(
-                alice.address, bob.address, ethers.parseEther("100"),
-                ethers.ZeroAddress, ethers.parseEther("0.01"),
-                { value: ethers.parseEther("0.01") }
+                alice.address, bob.address, ethers.parseUnits("100", 10),
+                ethers.ZeroAddress, ethers.parseUnits("0.01", 10),
+                { value: ethers.parseUnits("0.01", 10) }
             );
 
             // Update request status directly (testing the updateRequestStatus function)
@@ -88,22 +88,22 @@ describe("Final 80% Push - Uncovered Branches", function () {
         it("Should handle unauthorized transfer request", async function () {
             // Mint tokens to alice
             const mintData = token.interface.encodeFunctionData("mint", [
-                alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate1
+                alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate1
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, mintData, [rta1, rta2]);
 
             // Set fees
             const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseEther("0.01"), [ethers.ZeroAddress]
+                0, ethers.parseUnits("0.01", 10), [ethers.ZeroAddress]
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeData, [rta1, rta2]);
 
             // Try to request transfer from alice's account by bob (who is not a broker and not alice)
             await expect(
                 token.connect(bob).requestTransferWithFee(
-                    alice.address, carol.address, ethers.parseEther("100"),
-                    ethers.ZeroAddress, ethers.parseEther("0.01"),
-                    { value: ethers.parseEther("0.01") }
+                    alice.address, carol.address, ethers.parseUnits("100", 10),
+                    ethers.ZeroAddress, ethers.parseUnits("0.01", 10),
+                    { value: ethers.parseUnits("0.01", 10) }
                 )
             ).to.be.reverted; // Should revert with OwnableUnauthorizedAccount
         });
@@ -111,22 +111,22 @@ describe("Final 80% Push - Uncovered Branches", function () {
         it("Should handle invalid fee token", async function () {
             // Mint tokens
             const mintData = token.interface.encodeFunctionData("mint", [
-                alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate1
+                alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate1
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, mintData, [rta1, rta2]);
 
             // Set fees with only native token
             const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseEther("0.01"), [ethers.ZeroAddress]
+                0, ethers.parseUnits("0.01", 10), [ethers.ZeroAddress]
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeData, [rta1, rta2]);
 
             // Try to use a non-accepted fee token
             await expect(
                 token.connect(alice).requestTransferWithFee(
-                    alice.address, bob.address, ethers.parseEther("100"),
+                    alice.address, bob.address, ethers.parseUnits("100", 10),
                     alice.address, // Using alice's address as invalid fee token
-                    ethers.parseEther("0.01"),
+                    ethers.parseUnits("0.01", 10),
                     { value: 0 }
                 )
             ).to.be.reverted; // Should revert with ERC20InvalidReceiver
@@ -135,22 +135,22 @@ describe("Final 80% Push - Uncovered Branches", function () {
         it("Should handle incorrect native token payment amount", async function () {
             // Mint tokens
             const mintData = token.interface.encodeFunctionData("mint", [
-                alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate1
+                alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate1
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, mintData, [rta1, rta2]);
 
             // Set fees
             const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseEther("0.01"), [ethers.ZeroAddress]
+                0, ethers.parseUnits("0.01", 10), [ethers.ZeroAddress]
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeData, [rta1, rta2]);
 
             // Send wrong amount of native token
             await expect(
                 token.connect(alice).requestTransferWithFee(
-                    alice.address, bob.address, ethers.parseEther("100"),
-                    ethers.ZeroAddress, ethers.parseEther("0.01"),
-                    { value: ethers.parseEther("0.005") } // Wrong amount
+                    alice.address, bob.address, ethers.parseUnits("100", 10),
+                    ethers.ZeroAddress, ethers.parseUnits("0.01", 10),
+                    { value: ethers.parseUnits("0.005", 10) } // Wrong amount
                 )
             ).to.be.reverted; // Should revert with ERC20InsufficientBalance
         });
@@ -161,21 +161,21 @@ describe("Final 80% Push - Uncovered Branches", function () {
         it("Should test updateRequestStatus on upgradeable", async function () {
             // Mint tokens
             const mintData = tokenUpgradeable.interface.encodeFunctionData("mint", [
-                alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate1
+                alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate1
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, mintData, [rta1, rta2]);
 
             // Set fees
             const setFeeData = tokenUpgradeable.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseEther("0.01"), [ethers.ZeroAddress]
+                0, ethers.parseUnits("0.01", 10), [ethers.ZeroAddress]
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, setFeeData, [rta1, rta2]);
 
             // Create a transfer request
             await tokenUpgradeable.connect(alice).requestTransferWithFee(
-                alice.address, bob.address, ethers.parseEther("100"),
-                ethers.ZeroAddress, ethers.parseEther("0.01"),
-                { value: ethers.parseEther("0.01") }
+                alice.address, bob.address, ethers.parseUnits("100", 10),
+                ethers.ZeroAddress, ethers.parseUnits("0.01", 10),
+                { value: ethers.parseUnits("0.01", 10) }
             );
 
             // Update request status
@@ -192,7 +192,7 @@ describe("Final 80% Push - Uncovered Branches", function () {
 
             for (let i = 0; i < 50; i++) {
                 recipients.push(i % 2 === 0 ? alice.address : bob.address);
-                amounts.push(ethers.parseEther("10"));
+                amounts.push(ethers.parseUnits("10", 10));
                 regulations.push(i % 2 === 0 ? REG_US_A : REG_US_CF);
                 dates.push(issuanceDate1);
             }
@@ -202,15 +202,15 @@ describe("Final 80% Push - Uncovered Branches", function () {
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, batchMintData, [rta1, rta2]);
 
-            expect(await tokenUpgradeable.balanceOf(alice.address)).to.equal(ethers.parseEther("250"));
-            expect(await tokenUpgradeable.balanceOf(bob.address)).to.equal(ethers.parseEther("250"));
+            expect(await tokenUpgradeable.balanceOf(alice.address)).to.equal(ethers.parseUnits("250", 10));
+            expect(await tokenUpgradeable.balanceOf(bob.address)).to.equal(ethers.parseUnits("250", 10));
         });
 
         it("Should handle multiple small burns across batches", async function () {
             // Mint several small batches
             for (let i = 0; i < 10; i++) {
                 const mintData = tokenUpgradeable.interface.encodeFunctionData("mint", [
-                    alice.address, ethers.parseEther("10"), REG_US_A, issuanceDate1 - (i * 100)
+                    alice.address, ethers.parseUnits("10", 10), REG_US_A, issuanceDate1 - (i * 100)
                 ]);
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, mintData, [rta1, rta2]);
             }
@@ -218,40 +218,40 @@ describe("Final 80% Push - Uncovered Branches", function () {
             // Burn small amounts multiple times
             for (let i = 0; i < 5; i++) {
                 const burnData = tokenUpgradeable.interface.encodeFunctionData("burnFrom", [
-                    alice.address, ethers.parseEther("5")
+                    alice.address, ethers.parseUnits("5", 10)
                 ]);
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, burnData, [rta1, rta2]);
             }
 
-            expect(await tokenUpgradeable.balanceOf(alice.address)).to.equal(ethers.parseEther("75"));
+            expect(await tokenUpgradeable.balanceOf(alice.address)).to.equal(ethers.parseUnits("75", 10));
         });
 
         it("Should handle complex regulation-based operations", async function () {
             // Mint different regulations
             const mintA = tokenUpgradeable.interface.encodeFunctionData("mint", [
-                alice.address, ethers.parseEther("100"), REG_US_A, issuanceDate1
+                alice.address, ethers.parseUnits("100", 10), REG_US_A, issuanceDate1
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, mintA, [rta1, rta2]);
 
             const mintCF = tokenUpgradeable.interface.encodeFunctionData("mint", [
-                alice.address, ethers.parseEther("200"), REG_US_CF, issuanceDate1
+                alice.address, ethers.parseUnits("200", 10), REG_US_CF, issuanceDate1
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, mintCF, [rta1, rta2]);
 
             // Burn from specific regulation
             const burnData = tokenUpgradeable.interface.encodeFunctionData("burnFromRegulation", [
-                alice.address, ethers.parseEther("50"), REG_US_A
+                alice.address, ethers.parseUnits("50", 10), REG_US_A
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, burnData, [rta1, rta2]);
 
             // Transfer from specific regulation
             const transferData = tokenUpgradeable.interface.encodeFunctionData("transferFromRegulated", [
-                alice.address, bob.address, ethers.parseEther("100"), REG_US_CF, issuanceDate1
+                alice.address, bob.address, ethers.parseUnits("100", 10), REG_US_CF, issuanceDate1
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, transferData, [rta1, rta2]);
 
-            expect(await tokenUpgradeable.balanceOf(alice.address)).to.equal(ethers.parseEther("150"));
-            expect(await tokenUpgradeable.balanceOf(bob.address)).to.equal(ethers.parseEther("100"));
+            expect(await tokenUpgradeable.balanceOf(alice.address)).to.equal(ethers.parseUnits("150", 10));
+            expect(await tokenUpgradeable.balanceOf(bob.address)).to.equal(ethers.parseUnits("100", 10));
         });
     });
 });

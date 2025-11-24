@@ -227,7 +227,7 @@ describe("RTAProxy - Internal Wallet Registry", function () {
       await rtaProxy.connect(signer2).confirmOperation(operationId);
 
       // Mint some tokens to owner for testing through RTAProxy multisig
-      const mintAmount = ethers.parseEther("2000000"); // 2M tokens
+      const mintAmount = ethers.parseUnits("2000000", 10); // 2M tokens
       const tokenAddress = await erc1450.getAddress();
       const mintData = erc1450.interface.encodeFunctionData("mint", [
         owner.address,
@@ -251,7 +251,7 @@ describe("RTAProxy - Internal Wallet Registry", function () {
     });
 
     it("Should NOT require time-lock for high-value transfers to internal wallets", async function () {
-      const amount = ethers.parseEther("1500000"); // 1.5M tokens (above threshold)
+      const amount = ethers.parseUnits("1500000", 10); // 1.5M tokens (above threshold)
       const tokenAddress = await erc1450.getAddress();
 
       // Encode transferFromRegulated to treasury (internal wallet)
@@ -289,7 +289,7 @@ describe("RTAProxy - Internal Wallet Registry", function () {
     });
 
     it("Should REQUIRE time-lock for high-value transfers to external wallets", async function () {
-      const amount = ethers.parseEther("1500000"); // 1.5M tokens (above threshold)
+      const amount = ethers.parseUnits("1500000", 10); // 1.5M tokens (above threshold)
       const tokenAddress = await erc1450.getAddress();
 
       // Encode transferFromRegulated to investor1 (external wallet)
@@ -334,7 +334,7 @@ describe("RTAProxy - Internal Wallet Registry", function () {
     });
 
     it("Should not require time-lock for small transfers regardless of destination", async function () {
-      const amount = ethers.parseEther("500000"); // 500K tokens (below threshold)
+      const amount = ethers.parseUnits("500000", 10); // 500K tokens (below threshold)
       const tokenAddress = await erc1450.getAddress();
 
       // Encode transferFromRegulated to investor1 (external wallet, but small amount)
