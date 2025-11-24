@@ -226,7 +226,7 @@ contract ERC1450Upgradeable is
      * @param issuanceDate Original issuance date of the transferred tokens
      * @dev Callable only by the transfer agent after compliance checks
      */
-    function transferFromBatch(
+    function transferFromRegulated(
         address from,
         address to,
         uint256 amount,
@@ -394,7 +394,7 @@ contract ERC1450Upgradeable is
     /**
      * @notice Burn tokens from an account with regulation tracking (RTA only)
      */
-    function burnFromBatch(
+    function burnFromRegulated(
         address from,
         uint256 amount,
         uint16 regulationType,
@@ -480,7 +480,7 @@ contract ERC1450Upgradeable is
 
         for (uint256 i = 0; i < froms.length; i++) {
             // Reuse burnFromBatch logic
-            this.burnFromBatch(froms[i], amounts[i], regulationTypes[i], issuanceDates[i]);
+            this.burnFromRegulated(froms[i], amounts[i], regulationTypes[i], issuanceDates[i]);
         }
 
         return true;
@@ -850,6 +850,7 @@ contract ERC1450Upgradeable is
 
                 found = true;
                 emit Transfer(from, to, amount);
+                emit RegulatedTransfer(from, to, amount, regulationType, issuanceDate);
                 break;
             }
         }

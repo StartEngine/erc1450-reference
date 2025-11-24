@@ -53,6 +53,17 @@ interface IERC1450 is IERC20, IERC165 {
         uint256 issuanceDate
     );
 
+    /**
+     * @notice Emitted when tokens are transferred with specific regulation tracking
+     */
+    event RegulatedTransfer(
+        address indexed from,
+        address indexed to,
+        uint256 amount,
+        uint16 indexed regulationType,
+        uint256 issuanceDate
+    );
+
     // Transfer request events
     event TransferRequested(
         uint256 indexed requestId,
@@ -139,7 +150,7 @@ interface IERC1450 is IERC20, IERC165 {
     /**
      * @notice Transfer tokens - DISABLED for security tokens
      * @dev Must always revert with ERC1450TransferDisabled()
-     *      Use transferFromBatch() for actual transfers with regulation tracking
+     *      Use transferFromRegulated() for actual transfers with regulation tracking
      */
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
 
@@ -154,7 +165,7 @@ interface IERC1450 is IERC20, IERC165 {
      * @dev Only callable by the registered transfer agent
      *      MUST revert if sender has insufficient tokens of the specified regulation/issuance
      */
-    function transferFromBatch(address from, address to, uint256 amount, uint16 regulationType, uint256 issuanceDate) external returns (bool);
+    function transferFromRegulated(address from, address to, uint256 amount, uint16 regulationType, uint256 issuanceDate) external returns (bool);
 
     /**
      * @notice Mint new tokens with regulation tracking (RTA only)
@@ -199,7 +210,7 @@ interface IERC1450 is IERC20, IERC165 {
      * @return bool Success status
      * @dev MUST revert if holder has insufficient tokens of the specified regulation/issuance
      */
-    function burnFromBatch(address from, uint256 amount, uint16 regulationType, uint256 issuanceDate) external returns (bool);
+    function burnFromRegulated(address from, uint256 amount, uint16 regulationType, uint256 issuanceDate) external returns (bool);
 
     /**
      * @notice Burn tokens of a specific regulation type (RTA only)
