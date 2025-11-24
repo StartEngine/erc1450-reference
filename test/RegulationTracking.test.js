@@ -260,8 +260,8 @@ describe("ERC1450 Regulation Tracking", function () {
     });
   });
 
-  describe("FIFO Transfer Tracking", function () {
-    it("Should transfer tokens using FIFO order", async function () {
+  describe("Regulated Transfer Tracking", function () {
+    it("Should transfer tokens using RTA-chosen strategy with transferFromRegulated", async function () {
       // Mint tokens with different regulations and dates
       const amount1 = ethers.parseEther("100");
       const amount2 = ethers.parseEther("200");
@@ -299,12 +299,15 @@ describe("ERC1450 Regulation Tracking", function () {
       await rtaProxy.connect(transferAgent).submitOperation(await erc1450.getAddress(), mintData2, 0);
       await rtaProxy.connect(signer2).confirmOperation(opId2);
 
-      // Transfer 150 tokens (should be 100 RegCF + 50 RegD due to FIFO)
-      const transferAmount = ethers.parseEther("150");
-      const transferData = erc1450.interface.encodeFunctionData("transferFrom", [
+      // RTA chooses to transfer specific batches (demonstrating control over strategy)
+      // First transfer 100 RegCF tokens
+      const transferAmount = ethers.parseEther("100");
+      const transferData = erc1450.interface.encodeFunctionData("transferFromRegulated", [
         holder1.address,
         holder2.address,
-        transferAmount
+        transferAmount,
+        REG_US_CF,
+        issuanceDate1
       ]);
       const transferOpId = await rtaProxy.connect(transferAgent).submitOperation.staticCall(
         await erc1450.getAddress(),
@@ -314,13 +317,14 @@ describe("ERC1450 Regulation Tracking", function () {
       await rtaProxy.connect(transferAgent).submitOperation(await erc1450.getAddress(), transferData, 0);
       await rtaProxy.connect(signer2).confirmOperation(transferOpId);
 
-      // Check holder2's regulations
+      // Check holder2's regulations (should have 1 regulation type now)
       const holder2Regs = await erc1450.getHolderRegulations(holder2.address);
-      expect(holder2Regs.regulationTypes.length).to.equal(2);
+      expect(holder2Regs.regulationTypes.length).to.equal(1);
+      expect(holder2Regs.regulationTypes[0]).to.equal(REG_US_CF);
 
       // Verify holder1's remaining balance
       const holder1Balance = await erc1450.balanceOf(holder1.address);
-      expect(holder1Balance).to.equal(ethers.parseEther("150")); // 300 - 150
+      expect(holder1Balance).to.equal(ethers.parseEther("200")); // 300 - 100
 
       // Verify holder2's received balance
       const holder2Balance = await erc1450.balanceOf(holder2.address);

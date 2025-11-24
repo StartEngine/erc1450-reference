@@ -38,28 +38,32 @@ describe("Upgradeable Contracts Critical Paths - 100% Coverage", function () {
                 ).to.be.revertedWithCustomError(token, "ERC20InvalidSender");
             });
 
-            it("Should revert when transferFrom to zero address", async function () {
+            it("Should revert when transferFromRegulated to zero address", async function () {
                 await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
 
                 await expect(
-                    token.connect(rta).transferFrom(
+                    token.connect(rta).transferFromRegulated(
                         alice.address,
                         ethers.ZeroAddress,
-                        ethers.parseEther("100")
+                        ethers.parseEther("100"),
+                        REG_US_A,
+                        issuanceDate
                     )
                 ).to.be.revertedWithCustomError(token, "ERC20InvalidReceiver");
             });
 
-            it("Should revert on insufficient balance in transferFrom", async function () {
+            it("Should revert on insufficient balance in transferFromRegulated", async function () {
                 await token.connect(rta).mint(alice.address, ethers.parseEther("50"), REG_US_A, issuanceDate);
 
                 await expect(
-                    token.connect(rta).transferFrom(
+                    token.connect(rta).transferFromRegulated(
                         alice.address,
                         bob.address,
-                        ethers.parseEther("100")
+                        ethers.parseEther("100"),
+                        REG_US_A,
+                        issuanceDate
                     )
-                ).to.be.revertedWithCustomError(token, "ERC20InsufficientBalance");
+                ).to.be.revertedWith("ERC1450: Insufficient batch balance");
             });
 
             it("Should revert when minting to zero address", async function () {
@@ -233,7 +237,7 @@ describe("Upgradeable Contracts Critical Paths - 100% Coverage", function () {
             await token.connect(rta).setAccountFrozen(alice.address, true);
 
             await expect(
-                token.connect(rta).transferFrom(alice.address, bob.address, ethers.parseEther("100"))
+                token.connect(rta).transferFromRegulated(alice.address, bob.address, ethers.parseEther("100"), REG_US_A, issuanceDate)
             ).to.be.revertedWithCustomError(token, "ERC1450ComplianceCheckFailed");
         });
 

@@ -189,8 +189,11 @@ describe("ERC1450 BatchMint Functionality", function () {
             const recipients = [alice.address, bob.address];
             const amounts = [ethers.parseEther("100"), ethers.parseEther("200")];
             const regulationTypes = [REG_A, REG_D];
-            const futureDate = Math.floor(Date.now() / 1000) + 86400; // Tomorrow
-            const issuanceDates = [Math.floor(Date.now() / 1000), futureDate];
+            // Use block timestamp to avoid issues with time manipulation in other tests
+            const currentBlock = await ethers.provider.getBlock('latest');
+            const currentTime = currentBlock.timestamp;
+            const futureDate = currentTime + 86400 * 30; // 30 days in future
+            const issuanceDates = [currentTime - 86400, futureDate];
 
             await expect(
                 token.connect(rta).batchMint(recipients, amounts, regulationTypes, issuanceDates)

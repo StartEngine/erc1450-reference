@@ -197,7 +197,7 @@ describe("Deep Branch Coverage - Push to 90%+", function () {
             await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
 
             const balanceBefore = await token.balanceOf(alice.address);
-            await token.connect(rta).transferFrom(alice.address, alice.address, ethers.parseEther("100"));
+            await token.connect(rta).transferFromRegulated(alice.address, alice.address, ethers.parseEther("100"), REG_US_A, issuanceDate);
             const balanceAfter = await token.balanceOf(alice.address);
 
             expect(balanceAfter).to.equal(balanceBefore); // Should remain the same
@@ -206,7 +206,7 @@ describe("Deep Branch Coverage - Push to 90%+", function () {
         it("Should handle zero amount transfer", async function () {
             await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
 
-            await token.connect(rta).transferFrom(alice.address, bob.address, 0);
+            await token.connect(rta).transferFromRegulated(alice.address, bob.address, 0, REG_US_A, issuanceDate);
 
             expect(await token.balanceOf(bob.address)).to.equal(0);
         });
@@ -315,7 +315,7 @@ describe("Deep Branch Coverage - Push to 90%+", function () {
             await tokenUpgradeable.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
 
             const balanceBefore = await tokenUpgradeable.balanceOf(alice.address);
-            await tokenUpgradeable.connect(rta).transferFrom(alice.address, alice.address, ethers.parseEther("100"));
+            await tokenUpgradeable.connect(rta).transferFromRegulated(alice.address, alice.address, ethers.parseEther("100"), REG_US_A, issuanceDate);
             const balanceAfter = await tokenUpgradeable.balanceOf(alice.address);
 
             expect(balanceAfter).to.equal(balanceBefore);
@@ -323,7 +323,7 @@ describe("Deep Branch Coverage - Push to 90%+", function () {
 
         it("Should handle zero amount transfer", async function () {
             await tokenUpgradeable.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
-            await tokenUpgradeable.connect(rta).transferFrom(alice.address, bob.address, 0);
+            await tokenUpgradeable.connect(rta).transferFromRegulated(alice.address, bob.address, 0, REG_US_A, issuanceDate);
             expect(await tokenUpgradeable.balanceOf(bob.address)).to.equal(0);
         });
 

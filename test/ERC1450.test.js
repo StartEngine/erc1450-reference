@@ -127,33 +127,35 @@ describe("ERC1450 Security Token", function () {
                 await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
             });
 
-            it("Should allow RTA to transfer tokens", async function () {
-                await token.connect(rta).transferFrom(
+            it("Should allow RTA to transfer tokens using transferFromRegulated", async function () {
+                await token.connect(rta).transferFromRegulated(
                     alice.address,
                     bob.address,
-                    ethers.parseEther("100")
+                    ethers.parseEther("100"),
+                    REG_US_A,
+                    issuanceDate
                 );
                 expect(await token.balanceOf(alice.address)).to.equal(ethers.parseEther("900"));
                 expect(await token.balanceOf(bob.address)).to.equal(ethers.parseEther("100"));
             });
 
-            it("Should revert if non-RTA tries to transfer", async function () {
+            it("Should revert with ERC1450TransferDisabled when using transferFrom", async function () {
                 await expect(
                     token.connect(alice).transferFrom(alice.address, bob.address, 100)
-                ).to.be.revertedWithCustomError(token, "ERC1450OnlyRTA");
+                ).to.be.revertedWithCustomError(token, "ERC1450TransferDisabled");
             });
 
-            it("Should revert if from account is frozen", async function () {
+            it("Should revert with ERC1450ComplianceCheckFailed if from account is frozen (using transferFromRegulated)", async function () {
                 await token.connect(rta).setAccountFrozen(alice.address, true);
                 await expect(
-                    token.connect(rta).transferFrom(alice.address, bob.address, 100)
+                    token.connect(rta).transferFromRegulated(alice.address, bob.address, 100, REG_US_A, issuanceDate)
                 ).to.be.revertedWithCustomError(token, "ERC1450ComplianceCheckFailed");
             });
 
-            it("Should revert if to account is frozen", async function () {
+            it("Should revert with ERC1450ComplianceCheckFailed if to account is frozen (using transferFromRegulated)", async function () {
                 await token.connect(rta).setAccountFrozen(bob.address, true);
                 await expect(
-                    token.connect(rta).transferFrom(alice.address, bob.address, 100)
+                    token.connect(rta).transferFromRegulated(alice.address, bob.address, 100, REG_US_A, issuanceDate)
                 ).to.be.revertedWithCustomError(token, "ERC1450ComplianceCheckFailed");
             });
         });

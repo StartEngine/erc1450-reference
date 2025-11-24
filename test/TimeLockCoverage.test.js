@@ -76,12 +76,14 @@ describe("Time-Lock Coverage Tests - Reach 90%+", function () {
     });
 
     describe("RTAProxy - Time-Lock on High-Value transferFrom (Lines 236-237)", function () {
-        it("Should require time-lock for high-value transferFrom and enforce delay", async function () {
-            // Encode high-value transferFrom operation
-            const transferData = token.interface.encodeFunctionData("transferFrom", [
+        it("Should require time-lock for high-value transferFromRegulated and enforce delay", async function () {
+            // Encode high-value transferFromRegulated operation
+            const transferData = token.interface.encodeFunctionData("transferFromRegulated", [
                 alice.address,
                 bob.address,
-                HIGH_VALUE
+                HIGH_VALUE,
+                REG_US_A,
+                issuanceDate
             ]);
 
             // Verify requiresTimeLock returns true for high-value
@@ -120,12 +122,14 @@ describe("Time-Lock Coverage Tests - Reach 90%+", function () {
             expect(await token.balanceOf(bob.address)).to.equal(HIGH_VALUE);
         });
 
-        it("Should NOT require time-lock for low-value transferFrom", async function () {
-            // Encode low-value transferFrom operation
-            const transferData = token.interface.encodeFunctionData("transferFrom", [
+        it("Should NOT require time-lock for low-value transferFromRegulated", async function () {
+            // Encode low-value transferFromRegulated operation
+            const transferData = token.interface.encodeFunctionData("transferFromRegulated", [
                 alice.address,
                 bob.address,
-                LOW_VALUE
+                LOW_VALUE,
+                REG_US_A,
+                issuanceDate
             ]);
 
             // Verify requiresTimeLock returns false for low-value
@@ -192,12 +196,14 @@ describe("Time-Lock Coverage Tests - Reach 90%+", function () {
     });
 
     describe("RTAProxyUpgradeable - Time-Lock on High-Value Operations (Lines 292-293)", function () {
-        it("Should require time-lock for high-value transferFrom and enforce delay", async function () {
-            // Encode high-value transferFrom operation
-            const transferData = tokenUpgradeable.interface.encodeFunctionData("transferFrom", [
+        it("Should require time-lock for high-value transferFromRegulated and enforce delay", async function () {
+            // Encode high-value transferFromRegulated operation
+            const transferData = tokenUpgradeable.interface.encodeFunctionData("transferFromRegulated", [
                 alice.address,
                 bob.address,
-                HIGH_VALUE
+                HIGH_VALUE,
+                REG_US_A,
+                issuanceDate
             ]);
 
             // Verify requiresTimeLock returns true
@@ -240,12 +246,14 @@ describe("Time-Lock Coverage Tests - Reach 90%+", function () {
             expect(await tokenUpgradeable.balanceOf(bob.address)).to.equal(HIGH_VALUE);
         });
 
-        it("Should NOT require time-lock for low-value transferFrom", async function () {
-            // Encode low-value transferFrom operation
-            const transferData = tokenUpgradeable.interface.encodeFunctionData("transferFrom", [
+        it("Should NOT require time-lock for low-value transferFromRegulated", async function () {
+            // Encode low-value transferFromRegulated operation
+            const transferData = tokenUpgradeable.interface.encodeFunctionData("transferFromRegulated", [
                 alice.address,
                 bob.address,
-                LOW_VALUE
+                LOW_VALUE,
+                REG_US_A,
+                issuanceDate
             ]);
 
             // Verify requiresTimeLock returns false
@@ -322,10 +330,12 @@ describe("Time-Lock Coverage Tests - Reach 90%+", function () {
             // Test with exactly 1M tokens (the threshold)
             const exactThreshold = ethers.parseEther("1000000");
 
-            const transferData = tokenUpgradeable.interface.encodeFunctionData("transferFrom", [
+            const transferData = tokenUpgradeable.interface.encodeFunctionData("transferFromRegulated", [
                 alice.address,
                 bob.address,
-                exactThreshold
+                exactThreshold,
+                REG_US_A,
+                issuanceDate
             ]);
 
             // Should require time-lock for exact threshold
@@ -397,10 +407,12 @@ describe("Time-Lock Coverage Tests - Reach 90%+", function () {
 
         it("Should verify time-lock is enforced before expiry and allows execution after", async function () {
             // Encode high-value transfer
-            const transferData = token.interface.encodeFunctionData("transferFrom", [
+            const transferData = token.interface.encodeFunctionData("transferFromRegulated", [
                 alice.address,
                 bob.address,
-                HIGH_VALUE
+                HIGH_VALUE,
+                REG_US_A,
+                issuanceDate
             ]);
 
             // Submit operation

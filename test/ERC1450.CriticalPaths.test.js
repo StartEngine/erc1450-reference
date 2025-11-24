@@ -46,16 +46,18 @@ describe("ERC1450 Critical Error Paths - 100% Coverage", function () {
         });
 
         describe("Line 469: ERC20InvalidReceiver(address(0))", function () {
-            it("Should revert when transferFrom to zero address", async function () {
+            it("Should revert when transferFromRegulated to zero address", async function () {
                 // Mint tokens to alice
                 await token.connect(rta).mint(alice.address, ethers.parseEther("1000"), REG_US_A, issuanceDate);
 
                 // Try to transfer to zero address
                 await expect(
-                    token.connect(rta).transferFrom(
+                    token.connect(rta).transferFromRegulated(
                         alice.address,
                         ethers.ZeroAddress,
-                        ethers.parseEther("100")
+                        ethers.parseEther("100"),
+                        REG_US_A,
+                        issuanceDate
                     )
                 ).to.be.revertedWithCustomError(token, "ERC20InvalidReceiver");
             });
@@ -106,18 +108,20 @@ describe("ERC1450 Critical Error Paths - 100% Coverage", function () {
         });
 
         describe("Line 474: ERC20InsufficientBalance", function () {
-            it("Should revert when transferFrom with insufficient balance", async function () {
+            it("Should revert when transferFromRegulated with insufficient balance", async function () {
                 // Mint only 50 tokens
                 await token.connect(rta).mint(alice.address, ethers.parseEther("50"), REG_US_A, issuanceDate);
 
                 // Try to transfer 100 tokens
                 await expect(
-                    token.connect(rta).transferFrom(
+                    token.connect(rta).transferFromRegulated(
                         alice.address,
                         bob.address,
-                        ethers.parseEther("100")
+                        ethers.parseEther("100"),
+                        REG_US_A,
+                        issuanceDate
                     )
-                ).to.be.revertedWithCustomError(token, "ERC20InsufficientBalance");
+                ).to.be.revertedWith("ERC1450: Insufficient batch balance");
             });
 
             it("Should revert when processing transfer request with insufficient balance", async function () {
@@ -192,7 +196,7 @@ describe("ERC1450 Critical Error Paths - 100% Coverage", function () {
 
             // Try to transfer - should revert
             await expect(
-                token.connect(rta).transferFrom(alice.address, bob.address, ethers.parseEther("100"))
+                token.connect(rta).transferFromRegulated(alice.address, bob.address, ethers.parseEther("100"), REG_US_A, issuanceDate)
             ).to.be.revertedWithCustomError(token, "ERC1450ComplianceCheckFailed");
         });
 
@@ -204,7 +208,7 @@ describe("ERC1450 Critical Error Paths - 100% Coverage", function () {
 
             // Try to transfer - should revert
             await expect(
-                token.connect(rta).transferFrom(alice.address, bob.address, ethers.parseEther("100"))
+                token.connect(rta).transferFromRegulated(alice.address, bob.address, ethers.parseEther("100"), REG_US_A, issuanceDate)
             ).to.be.revertedWithCustomError(token, "ERC1450ComplianceCheckFailed");
         });
 

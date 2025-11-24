@@ -218,11 +218,10 @@ contract RTAProxy {
         }
 
         // Check if this is a high-value transfer
-        if (selector == IERC1450.transferFrom.selector ||
+        if (selector == IERC1450.transferFromRegulated.selector ||
             selector == IERC1450.executeCourtOrder.selector) {
 
-            // Both transferFrom and executeCourtOrder have amount at position 3
-            // transferFrom(address from, address to, uint256 amount)
+            // transferFromRegulated(address from, address to, uint256 amount, uint16 regulationType, uint256 issuanceDate)
             // executeCourtOrder(address from, address to, uint256 amount, bytes32 documentHash)
 
             // Calldata layout:
@@ -230,6 +229,7 @@ contract RTAProxy {
             // bytes 4-35: param 1 (address from)
             // bytes 36-67: param 2 (address to)
             // bytes 68-99: param 3 (uint256 amount) <- we want this
+            // (additional params after amount are ignored for time-lock check)
 
             if (data.length < 100) return false; // Not enough data
 

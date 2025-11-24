@@ -9,6 +9,10 @@ describe("RTAProxy - Internal Wallet Registry", function () {
   let treasury, primary, secondary, escrow;
   let investor1, investor2;
 
+  // Regulation constants
+  const REG_US_A = 0x0001;
+  const issuanceDate = Math.floor(Date.now() / 1000) - 86400 * 30; // 30 days ago
+
   beforeEach(async function () {
     // Get signers
     [owner, signer1, signer2, signer3, treasury, primary, secondary, escrow, investor1, investor2] = await ethers.getSigners();
@@ -228,8 +232,8 @@ describe("RTAProxy - Internal Wallet Registry", function () {
       const mintData = erc1450.interface.encodeFunctionData("mint", [
         owner.address,
         mintAmount,
-        1, // regulationType (e.g., 1 for Reg D)
-        Math.floor(Date.now() / 1000) // issuanceDate (current timestamp)
+        REG_US_A, // Use consistent regulation type
+        issuanceDate // Use fixed issuance date constant
       ]);
 
       const mintTx = await rtaProxy.connect(signer1).submitOperation(tokenAddress, mintData, 0);
@@ -250,11 +254,13 @@ describe("RTAProxy - Internal Wallet Registry", function () {
       const amount = ethers.parseEther("1500000"); // 1.5M tokens (above threshold)
       const tokenAddress = await erc1450.getAddress();
 
-      // Encode transferFrom to treasury (internal wallet)
-      const data = erc1450.interface.encodeFunctionData("transferFrom", [
+      // Encode transferFromRegulated to treasury (internal wallet)
+      const data = erc1450.interface.encodeFunctionData("transferFromRegulated", [
         owner.address,
         treasury.address,
-        amount
+        amount,
+        REG_US_A, // regulationType (matching the mint)
+        issuanceDate // issuanceDate (matching the mint)
       ]);
 
       // Check that time-lock is NOT required
@@ -286,11 +292,13 @@ describe("RTAProxy - Internal Wallet Registry", function () {
       const amount = ethers.parseEther("1500000"); // 1.5M tokens (above threshold)
       const tokenAddress = await erc1450.getAddress();
 
-      // Encode transferFrom to investor1 (external wallet)
-      const data = erc1450.interface.encodeFunctionData("transferFrom", [
+      // Encode transferFromRegulated to investor1 (external wallet)
+      const data = erc1450.interface.encodeFunctionData("transferFromRegulated", [
         owner.address,
         investor1.address,
-        amount
+        amount,
+        REG_US_A, // regulationType (matching the mint)
+        issuanceDate // issuanceDate (matching the mint)
       ]);
 
       // Check that time-lock IS required
@@ -329,11 +337,13 @@ describe("RTAProxy - Internal Wallet Registry", function () {
       const amount = ethers.parseEther("500000"); // 500K tokens (below threshold)
       const tokenAddress = await erc1450.getAddress();
 
-      // Encode transferFrom to investor1 (external wallet, but small amount)
-      const data = erc1450.interface.encodeFunctionData("transferFrom", [
+      // Encode transferFromRegulated to investor1 (external wallet, but small amount)
+      const data = erc1450.interface.encodeFunctionData("transferFromRegulated", [
         owner.address,
         investor1.address,
-        amount
+        amount,
+        REG_US_A, // regulationType (matching the mint)
+        issuanceDate // issuanceDate (matching the mint)
       ]);
 
       // Check that time-lock is NOT required (amount below threshold)

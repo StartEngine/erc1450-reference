@@ -59,7 +59,7 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
 
             // Transfer doesn't change total supply
             await token.connect(rta).mint(bob.address, ethers.parseEther("50"), REG_US_A, issuanceDate);
-            await token.connect(rta).transferFrom(bob.address, alice.address, ethers.parseEther("50"));
+            await token.connect(rta).transferFromRegulated(bob.address, alice.address, ethers.parseEther("50"), REG_US_A, issuanceDate);
             const afterTransfer = await token.totalSupply();
             expect(afterTransfer).to.equal(afterMint + ethers.parseEther("50"));
 
@@ -76,8 +76,8 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
 
             // Attempting to transfer more than balance should revert
             await expect(
-                token.connect(rta).transferFrom(alice.address, bob.address, ethers.parseEther("200"))
-            ).to.be.revertedWithCustomError(token, "ERC20InsufficientBalance");
+                token.connect(rta).transferFromRegulated(alice.address, bob.address, ethers.parseEther("200"), REG_US_A, issuanceDate)
+            ).to.be.revertedWith("ERC1450: Insufficient batch balance");
 
             // Balance remains intact
             expect(await token.balanceOf(alice.address)).to.equal(ethers.parseEther("100"));
@@ -92,7 +92,7 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
             const sumBefore = aliceBalanceBefore + bobBalanceBefore;
 
             // Transfer
-            await token.connect(rta).transferFrom(alice.address, bob.address, ethers.parseEther("30"));
+            await token.connect(rta).transferFromRegulated(alice.address, bob.address, ethers.parseEther("30"), REG_US_A, issuanceDate);
 
             const aliceBalanceAfter = await token.balanceOf(alice.address);
             const bobBalanceAfter = await token.balanceOf(bob.address);
@@ -115,10 +115,10 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
                 token.connect(bob).burnFrom(alice.address, ethers.parseEther("50"))
             ).to.be.revertedWithCustomError(token, "ERC1450OnlyRTA");
 
-            // Non-RTA cannot transfer
+            // Non-RTA cannot transfer (transferFrom is disabled)
             await expect(
                 token.connect(alice).transferFrom(alice.address, bob.address, ethers.parseEther("50"))
-            ).to.be.revertedWithCustomError(token, "ERC1450OnlyRTA");
+            ).to.be.revertedWithCustomError(token, "ERC1450TransferDisabled");
 
             // Non-RTA cannot freeze accounts
             await expect(
@@ -144,10 +144,10 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
                 token.connect(alice).approve(bob.address, ethers.parseEther("50"))
             ).to.be.revertedWithCustomError(token, "ERC1450TransferDisabled");
 
-            // transferFrom() by non-RTA should revert
+            // transferFrom() is disabled for everyone
             await expect(
                 token.connect(bob).transferFrom(alice.address, bob.address, ethers.parseEther("50"))
-            ).to.be.revertedWithCustomError(token, "ERC1450OnlyRTA");
+            ).to.be.revertedWithCustomError(token, "ERC1450TransferDisabled");
 
             // allowance should always return 0
             expect(await token.allowance(alice.address, bob.address)).to.equal(0);
@@ -164,12 +164,12 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
 
             // Alice cannot send
             await expect(
-                token.connect(rta).transferFrom(alice.address, bob.address, ethers.parseEther("50"))
+                token.connect(rta).transferFromRegulated(alice.address, bob.address, ethers.parseEther("50"), REG_US_A, issuanceDate)
             ).to.be.revertedWithCustomError(token, "ERC1450ComplianceCheckFailed");
 
             // Alice cannot receive
             await expect(
-                token.connect(rta).transferFrom(bob.address, alice.address, ethers.parseEther("50"))
+                token.connect(rta).transferFromRegulated(bob.address, alice.address, ethers.parseEther("50"), REG_US_A, issuanceDate)
             ).to.be.revertedWithCustomError(token, "ERC1450ComplianceCheckFailed");
 
             // Court order should still work
@@ -356,9 +356,9 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
             const initialTotalSupply = await token.totalSupply();
 
             // Perform multiple transfers
-            await token.connect(rta).transferFrom(alice.address, bob.address, ethers.parseEther("10"));
-            await token.connect(rta).transferFrom(bob.address, carol.address, ethers.parseEther("20"));
-            await token.connect(rta).transferFrom(carol.address, dave.address, ethers.parseEther("15"));
+            await token.connect(rta).transferFromRegulated(alice.address, bob.address, ethers.parseEther("10"), REG_US_A, issuanceDate);
+            await token.connect(rta).transferFromRegulated(bob.address, carol.address, ethers.parseEther("20"), REG_US_A, issuanceDate);
+            await token.connect(rta).transferFromRegulated(carol.address, dave.address, ethers.parseEther("15"), REG_US_A, issuanceDate);
 
             // Total supply unchanged
             expect(await token.totalSupply()).to.equal(initialTotalSupply);

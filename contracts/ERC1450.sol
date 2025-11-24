@@ -186,9 +186,9 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
      * @dev Always reverts with ERC1450TransferDisabled
      */
     function transferFrom(
-        address from,
-        address to,
-        uint256 amount
+        address /* from */,
+        address /* to */,
+        uint256 /* amount */
     ) public pure override(IERC20, IERC1450) returns (bool) {
         revert ERC1450TransferDisabled();
     }

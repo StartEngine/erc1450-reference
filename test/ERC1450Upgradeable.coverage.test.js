@@ -106,10 +106,12 @@ describe("ERC1450Upgradeable - Additional Coverage", function () {
 
     it("Should update regulation supply after transfer", async function () {
       // Transfer some REG_US_A tokens from holder1 to holder2
-      const transferData = token.interface.encodeFunctionData("transferFrom", [
+      const transferData = token.interface.encodeFunctionData("transferFromRegulated", [
         holder1.address,
         holder2.address,
-        ethers.parseEther("200")
+        ethers.parseEther("200"),
+        REG_US_A,
+        issuanceDate1
       ]);
       await rtaProxy.connect(rta1).submitOperation(tokenAddress, transferData, 0);
       await rtaProxy.connect(rta2).confirmOperation(3);
@@ -267,10 +269,12 @@ describe("ERC1450Upgradeable - Additional Coverage", function () {
     it("Should handle transfer of exact balance", async function () {
       const balance = await token.balanceOf(holder1.address);
 
-      const transferData = token.interface.encodeFunctionData("transferFrom", [
+      const transferData = token.interface.encodeFunctionData("transferFromRegulated", [
         holder1.address,
         holder2.address,
-        balance
+        balance,
+        REG_US_A,
+        issuanceDate1
       ]);
       await rtaProxy.connect(rta1).submitOperation(tokenAddress, transferData, 0);
       await rtaProxy.connect(rta2).confirmOperation(1);
@@ -282,10 +286,12 @@ describe("ERC1450Upgradeable - Additional Coverage", function () {
     it("Should maintain regulation details after full balance transfer", async function () {
       const balance = await token.balanceOf(holder1.address);
 
-      const transferData = token.interface.encodeFunctionData("transferFrom", [
+      const transferData = token.interface.encodeFunctionData("transferFromRegulated", [
         holder1.address,
         holder2.address,
-        balance
+        balance,
+        REG_US_A,
+        issuanceDate1
       ]);
       await rtaProxy.connect(rta1).submitOperation(tokenAddress, transferData, 0);
       await rtaProxy.connect(rta2).confirmOperation(1);

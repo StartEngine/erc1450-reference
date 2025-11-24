@@ -131,10 +131,12 @@ describe("ERC1450Upgradeable Security Token", function () {
 
             // Now transfer tokens
             const transferAmount = ethers.parseEther("100");
-            const transferData = token.interface.encodeFunctionData("transferFrom", [
+            const transferData = token.interface.encodeFunctionData("transferFromRegulated", [
                 holder1.address,
                 holder2.address,
-                transferAmount
+                transferAmount,
+                REG_US_A,
+                issuanceDate
             ]);
 
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, transferData, 0);
