@@ -406,6 +406,20 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
         uint16 regulationType,
         uint256 issuanceDate
     ) external override onlyTransferAgent returns (bool) {
+        return _burnFromRegulated(from, amount, regulationType, issuanceDate);
+    }
+
+    /**
+     * @dev Internal function to burn tokens with regulation tracking.
+     * This is called by both burnFromRegulated and batchBurnFrom to avoid
+     * external calls that would change msg.sender.
+     */
+    function _burnFromRegulated(
+        address from,
+        uint256 amount,
+        uint16 regulationType,
+        uint256 issuanceDate
+    ) internal returns (bool) {
         if (from == address(0)) {
             revert ERC20InvalidSender(address(0));
         }
@@ -535,8 +549,8 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
         );
 
         for (uint256 i = 0; i < froms.length; i++) {
-            // Reuse burnFromBatch logic
-            this.burnFromRegulated(froms[i], amounts[i], regulationTypes[i], issuanceDates[i]);
+            // Call internal function to preserve msg.sender (RTAProxy)
+            _burnFromRegulated(froms[i], amounts[i], regulationTypes[i], issuanceDates[i]);
         }
 
         return true;
