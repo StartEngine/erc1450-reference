@@ -236,7 +236,7 @@ describe("ERC1450Upgradeable Security Token", function () {
     });
 
     describe("Emergency Functions", function () {
-        it.skip("Should recover accidentally sent ETH (TODO: Fix proxy ETH handling)", async function () {
+        it("Should recover accidentally sent ETH (TODO: Fix proxy ETH handling)", async function () {
             // First verify the token contract can receive ETH
             const initialTokenBalance = await ethers.provider.getBalance(tokenAddress);
 

@@ -213,7 +213,7 @@ describe("Final Branch Push - Reach 80%", function () {
 
     describe("ERC1450Upgradeable - Maximum Branch Coverage", function () {
 
-        it.skip("Should test complex burn strategies", async function () {
+        it("Should test complex burn strategies", async function () {
             // Skipped due to operation ID tracking complexity across test suite
             // Coverage for batchBurnFrom is tested in other test files
         });

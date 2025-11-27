@@ -203,7 +203,7 @@ describe("Upgradeable Contract Focus - Final 1.5%", function () {
             expect(await tokenUpgradeable.balanceOf(alice.address)).to.be.lt(ethers.parseUnits("2000", 10));
         });
 
-        it.skip("Should handle batch operations with all four regulation types", async function () {
+        it("Should handle batch operations with all four regulation types", async function () {
             // Mint all regulation types
             const batchMint = tokenUpgradeable.interface.encodeFunctionData("batchMint", [
                 [alice.address, alice.address, alice.address, alice.address,

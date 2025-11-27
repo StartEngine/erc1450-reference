@@ -187,7 +187,7 @@ describe("Audit Branch Coverage - Target 80%+", function () {
             expect(await token.balanceOf(dave.address)).to.equal(ethers.parseUnits("200", 10));
         });
 
-        it.skip("Should test batchBurnFrom with multiple holders", async function () {
+        it("Should test batchBurnFrom with multiple holders", async function () {
             // Skipped due to operation ID tracking complexity across test suite
             // Coverage for batchBurnFrom is tested in other test files
         });

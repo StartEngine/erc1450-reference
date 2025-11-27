@@ -91,7 +91,7 @@ describe("Final 80% Push - Error Paths", function () {
             expect(await token.totalSupply()).to.equal(ethers.parseUnits("80", 10));
         });
 
-        it.skip("Should handle multiple sequential batch operations", async function () {
+        it("Should handle multiple sequential batch operations", async function () {
             // Batch mint
             const batchMint1 = token.interface.encodeFunctionData("batchMint", [
                 [alice.address, bob.address],
@@ -174,7 +174,7 @@ describe("Final 80% Push - Error Paths", function () {
             expect(await tokenUpgradeable.totalSupply()).to.equal(ethers.parseUnits("70", 10));
         });
 
-        it.skip("Should handle batch operations with minimal sizes", async function () {
+        it("Should handle batch operations with minimal sizes", async function () {
             // Batch mint with just 1 item
             const batchMint = tokenUpgradeable.interface.encodeFunctionData("batchMint", [
                 [alice.address],
