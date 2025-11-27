@@ -186,16 +186,17 @@ describe("Critical 80% Coverage - Final Push", function () {
             expect(await tokenUpgradeable.balanceOf(alice.address)).to.equal(ethers.parseUnits("250", 10));
         });
 
-        it.skip("Should handle batch transfers with partial amounts", async function () {
-            // Mint to alice with multiple batches
+        it("Should handle batch transfers with partial amounts", async function () {
+            // Mint to alice with multiple batches (same issuance date to allow partial transfers)
             for (let i = 0; i < 10; i++) {
                 const mintData = tokenUpgradeable.interface.encodeFunctionData("mint", [
-                    alice.address, ethers.parseUnits("20", 10), REG_US_A, issuanceDate1 - (i * 500)
+                    alice.address, ethers.parseUnits("20", 10), REG_US_A, issuanceDate1
                 ]);
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, mintData, [rta1, rta2]);
             }
+            // Alice now has 200 tokens (10 * 20) in consolidated batch
 
-            // Transfer amounts that partially deplete batches
+            // Transfer amounts that partially deplete the batch
             for (let i = 0; i < 5; i++) {
                 const transferData = tokenUpgradeable.interface.encodeFunctionData("transferFromRegulated", [
                     alice.address, bob.address, ethers.parseUnits("15", 10), REG_US_A, issuanceDate1
@@ -203,6 +204,7 @@ describe("Critical 80% Coverage - Final Push", function () {
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, transferData, [rta1, rta2]);
             }
 
+            // Alice: 200 - 75 = 125, Bob: 75
             expect(await tokenUpgradeable.balanceOf(alice.address)).to.equal(ethers.parseUnits("125", 10));
             expect(await tokenUpgradeable.balanceOf(bob.address)).to.equal(ethers.parseUnits("75", 10));
         });
@@ -258,26 +260,28 @@ describe("Critical 80% Coverage - Final Push", function () {
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, withdraw2, [rta1, rta2]);
         });
 
-        it.skip("Should handle extreme batch scenarios", async function () {
+        it("Should handle extreme batch scenarios", async function () {
             // Test with maximum allowed batch size
+            // First, mint a large batch to alice with consistent regulation and date
             const recipients = [];
             const amounts = [];
             const regulations = [];
             const dates = [];
 
             for (let i = 0; i < 100; i++) {
-                recipients.push([alice.address, bob.address, carol.address, dave.address][i % 4]);
+                recipients.push(alice.address);
                 amounts.push(ethers.parseUnits("1", 10));
-                regulations.push([REG_US_A, REG_US_CF, REG_US_D, REG_US_S][i % 4]);
-                dates.push([issuanceDate1, issuanceDate2, issuanceDate3][i % 3]);
+                regulations.push(REG_US_A);
+                dates.push(issuanceDate1);
             }
 
             const batchMintData = tokenUpgradeable.interface.encodeFunctionData("batchMint", [
                 recipients, amounts, regulations, dates
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, batchMintData, [rta1, rta2]);
+            // Alice now has 100 tokens with REG_US_A and issuanceDate1
 
-            // Batch transfer
+            // Batch transfer - transfer 20 * 0.5 = 10 tokens from alice to dave
             const fromAddrs = [];
             const toAddrs = [];
             const amts = [];
@@ -296,6 +300,10 @@ describe("Critical 80% Coverage - Final Push", function () {
                 fromAddrs, toAddrs, amts, regs, dts
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, batchTransferData, [rta1, rta2]);
+
+            // Verify: Alice 100 - 10 = 90, Dave = 10
+            expect(await tokenUpgradeable.balanceOf(alice.address)).to.equal(ethers.parseUnits("90", 10));
+            expect(await tokenUpgradeable.balanceOf(dave.address)).to.equal(ethers.parseUnits("10", 10));
         });
 
         it("Should handle sequential freeze/unfreeze with operations", async function () {
