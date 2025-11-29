@@ -320,9 +320,10 @@ describe("Critical 80% Coverage - Final Push", function () {
                 ]);
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, freezeData, [rta1, rta2]);
 
-                const courtOrderData = tokenUpgradeable.interface.encodeFunctionData("executeCourtOrder", [
+                const courtOrderData = tokenUpgradeable.interface.encodeFunctionData("controllerTransfer", [
                     alice.address, bob.address, ethers.parseUnits("50", 10),
-                    ethers.keccak256(ethers.toUtf8Bytes(`court-order-${i}`))
+                    ethers.keccak256(ethers.toUtf8Bytes(`court-order-${i}`)),
+                    ethers.toUtf8Bytes("COURT_ORDER")
                 ]);
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, courtOrderData, [rta1, rta2]);
 

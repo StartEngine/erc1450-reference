@@ -155,7 +155,7 @@ describe("Branch Coverage Push to 90%", function () {
         it("Should revert burnFromRegulation with insufficient regulation balance", async function () {
             await expect(
                 token.connect(rta).burnFromRegulation(alice.address, 1000, REG_US_D)
-            ).to.be.revertedWith("ERC1450: Insufficient regulation balance");
+            ).to.be.revertedWith("ERC1450: Insufficient tokens of specified regulation");
         });
 
         it("Should burn tokens of specific regulation", async function () {
@@ -591,11 +591,12 @@ describe("Branch Coverage Push to 90%", function () {
             await token.connect(rta).mint(alice.address, 300, REG_US_D, issuanceDate2);
 
             // Execute court order that uses FIFO transfer
-            await token.connect(rta).executeCourtOrder(
+            await token.connect(rta).controllerTransfer(
                 alice.address,
                 bob.address,
                 400,
-                ethers.keccak256(ethers.toUtf8Bytes("court-order-1"))
+                ethers.keccak256(ethers.toUtf8Bytes("court-order-1")),
+                ethers.toUtf8Bytes("COURT_ORDER")
             );
 
             expect(await token.balanceOf(bob.address)).to.equal(400);
@@ -699,25 +700,6 @@ describe("Branch Coverage Push to 90%", function () {
         });
     });
 
-    describe("ERC1450 - _cleanupEmptyBatches (lines 1064-1081)", function () {
-        it("Should clean up multiple empty batches", async function () {
-            // Create multiple batches
-            await token.connect(rta).mint(alice.address, 100, REG_US_A, issuanceDate);
-            await token.connect(rta).mint(alice.address, 100, REG_US_D, issuanceDate2);
-            await token.connect(rta).mint(alice.address, 100, 0x0003, issuanceDate);
-
-            // Burn using FIFO which will create some empty batches
-            await token.connect(rta).burnFrom(alice.address, 250);
-
-            const info = await token.getDetailedBatchInfo(alice.address);
-            // Should have cleaned up empty batches
-            let nonZeroCount = 0;
-            for (let i = 0; i < info.count; i++) {
-                if (info.amounts[i] > 0) nonZeroCount++;
-            }
-            expect(nonZeroCount).to.equal(Number(info.count));
-        });
-    });
 
     describe("RTAProxy - requiresTimeLock with internal wallets (lines 212-256)", function () {
         beforeEach(async function () {
@@ -775,11 +757,12 @@ describe("Branch Coverage Push to 90%", function () {
         });
 
         it("Should require time-lock for high-value court order", async function () {
-            const courtOrderData = token.interface.encodeFunctionData("executeCourtOrder", [
+            const courtOrderData = token.interface.encodeFunctionData("controllerTransfer", [
                 alice.address,
                 bob.address,
                 ethers.parseUnits("2000000", 10),
-                ethers.keccak256(ethers.toUtf8Bytes("court-order"))
+                ethers.keccak256(ethers.toUtf8Bytes("court-order")),
+                ethers.toUtf8Bytes("COURT_ORDER")
             ]);
 
             const requiresTL = await rtaProxy.requiresTimeLock(courtOrderData);
@@ -1216,11 +1199,12 @@ describe("Additional ERC1450 Branch Coverage", function () {
             await token.connect(rta).setAccountFrozen(alice.address, true);
 
             // Court order should bypass frozen status
-            await token.connect(rta).executeCourtOrder(
+            await token.connect(rta).controllerTransfer(
                 alice.address,
                 bob.address,
                 500,
-                ethers.keccak256(ethers.toUtf8Bytes("court-order"))
+                ethers.keccak256(ethers.toUtf8Bytes("court-order")),
+                ethers.toUtf8Bytes("COURT_ORDER")
             );
 
             expect(await token.balanceOf(bob.address)).to.equal(500);
@@ -1230,11 +1214,12 @@ describe("Additional ERC1450 Branch Coverage", function () {
             await token.connect(rta).setAccountFrozen(bob.address, true);
 
             // Court order should bypass frozen status
-            await token.connect(rta).executeCourtOrder(
+            await token.connect(rta).controllerTransfer(
                 alice.address,
                 bob.address,
                 500,
-                ethers.keccak256(ethers.toUtf8Bytes("court-order"))
+                ethers.keccak256(ethers.toUtf8Bytes("court-order")),
+                ethers.toUtf8Bytes("COURT_ORDER")
             );
 
             expect(await token.balanceOf(bob.address)).to.equal(500);
@@ -1584,11 +1569,12 @@ describe("ERC1450Upgradeable Branch Coverage", function () {
             await token.connect(rta).mint(alice.address, 300, REG_US_D, issuanceDate2);
 
             // Court order uses FIFO
-            await token.connect(rta).executeCourtOrder(
+            await token.connect(rta).controllerTransfer(
                 alice.address,
                 bob.address,
                 400,
-                ethers.keccak256(ethers.toUtf8Bytes("order"))
+                ethers.keccak256(ethers.toUtf8Bytes("order")),
+                ethers.toUtf8Bytes("COURT_ORDER")
             );
 
             expect(await token.balanceOf(bob.address)).to.equal(400);
@@ -1745,11 +1731,12 @@ describe("ERC1450Upgradeable Branch Coverage", function () {
         });
 
         it("Should handle court order", async function () {
-            await token.connect(rta).executeCourtOrder(
+            await token.connect(rta).controllerTransfer(
                 alice.address,
                 bob.address,
                 500,
-                ethers.keccak256(ethers.toUtf8Bytes("court-order"))
+                ethers.keccak256(ethers.toUtf8Bytes("court-order")),
+                ethers.toUtf8Bytes("COURT_ORDER")
             );
 
             expect(await token.balanceOf(bob.address)).to.equal(500);

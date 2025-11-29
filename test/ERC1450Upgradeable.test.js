@@ -298,11 +298,12 @@ describe("ERC1450Upgradeable Security Token", function () {
             await rtaProxy.connect(rta2).confirmOperation(1);
 
             // Execute court order
-            const courtOrderData = token.interface.encodeFunctionData("executeCourtOrder", [
+            const courtOrderData = token.interface.encodeFunctionData("controllerTransfer", [
                 holder1.address,
                 holder2.address,
                 ethers.parseUnits("500", 10),
-                ethers.encodeBytes32String("COURT-ORDER-123")
+                ethers.encodeBytes32String("COURT-ORDER-123"),
+                ethers.toUtf8Bytes("COURT_ORDER")
             ]);
 
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, courtOrderData, 0);

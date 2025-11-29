@@ -259,9 +259,10 @@ describe("Branch Coverage Boost - Target 80%", function () {
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, freezeData, [rta1, rta2]);
 
             // Execute court order (should work even if account is frozen)
-            const courtOrderData = tokenUpgradeable.interface.encodeFunctionData("executeCourtOrder", [
+            const courtOrderData = tokenUpgradeable.interface.encodeFunctionData("controllerTransfer", [
                 alice.address, bob.address, ethers.parseUnits("200", 10),
-                ethers.keccak256(ethers.toUtf8Bytes("court-order-frozen"))
+                ethers.keccak256(ethers.toUtf8Bytes("court-order-frozen")),
+                ethers.toUtf8Bytes("COURT_ORDER")
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, courtOrderData, [rta1, rta2]);
 

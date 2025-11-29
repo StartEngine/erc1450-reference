@@ -230,8 +230,9 @@ describe("Coverage Boost Tests", function () {
             const documentHash = ethers.keccak256(ethers.toUtf8Bytes("court-order"));
 
             // Execute court order
-            const courtOrderData = tokenUpgradeable.interface.encodeFunctionData("executeCourtOrder", [
-                alice.address, bob.address, ethers.parseUnits("50", 10), documentHash
+            const courtOrderData = tokenUpgradeable.interface.encodeFunctionData("controllerTransfer", [
+                alice.address, bob.address, ethers.parseUnits("50", 10), documentHash,
+                ethers.toUtf8Bytes("COURT_ORDER")
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, courtOrderData, [rta1, rta2]);
 

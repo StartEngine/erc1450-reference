@@ -337,9 +337,10 @@ describe("Audit Branch Coverage - Target 80%+", function () {
             await rtaProxyUpgradeable.connect(rta2).confirmOperation(0);
 
             // Execute court order
-            const courtOrderData = tokenUpgradeable.interface.encodeFunctionData("executeCourtOrder", [
+            const courtOrderData = tokenUpgradeable.interface.encodeFunctionData("controllerTransfer", [
                 alice.address, bob.address, ethers.parseUnits("300", 10),
-                ethers.keccak256(ethers.toUtf8Bytes("court-order-123"))
+                ethers.keccak256(ethers.toUtf8Bytes("court-order-123")),
+                ethers.toUtf8Bytes("COURT_ORDER")
             ]);
             await rtaProxyUpgradeable.connect(rta1).submitOperation(tokenUpgradeableAddress, courtOrderData, 0);
             await rtaProxyUpgradeable.connect(rta2).confirmOperation(1);

@@ -78,11 +78,12 @@ describe("Upgradeable Contracts Critical Paths - 100% Coverage", function () {
                 const documentHash = ethers.keccak256(ethers.toUtf8Bytes("court-order"));
 
                 await expect(
-                    token.connect(rta).executeCourtOrder(
+                    token.connect(rta).controllerTransfer(
                         alice.address,
                         ethers.ZeroAddress,
                         ethers.parseUnits("100", 10),
-                        documentHash
+                        documentHash,
+                        ethers.toUtf8Bytes("COURT_ORDER")
                     )
                 ).to.be.revertedWithCustomError(token, "ERC20InvalidReceiver");
             });
@@ -91,11 +92,12 @@ describe("Upgradeable Contracts Critical Paths - 100% Coverage", function () {
                 const documentHash = ethers.keccak256(ethers.toUtf8Bytes("court-order"));
 
                 await expect(
-                    token.connect(rta).executeCourtOrder(
+                    token.connect(rta).controllerTransfer(
                         ethers.ZeroAddress,
                         bob.address,
                         ethers.parseUnits("100", 10),
-                        documentHash
+                        documentHash,
+                        ethers.toUtf8Bytes("COURT_ORDER")
                     )
                 ).to.be.revertedWithCustomError(token, "ERC20InvalidSender");
             });

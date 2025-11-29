@@ -199,9 +199,10 @@ describe("Final Branch Push - Reach 80%", function () {
             }
 
             // Court order for 500 tokens (spans multiple batches)
-            const courtOrderData = token.interface.encodeFunctionData("executeCourtOrder", [
+            const courtOrderData = token.interface.encodeFunctionData("controllerTransfer", [
                 alice.address, dave.address, ethers.parseUnits("500", 10),
-                ethers.keccak256(ethers.toUtf8Bytes("court-order-multi"))
+                ethers.keccak256(ethers.toUtf8Bytes("court-order-multi")),
+                ethers.toUtf8Bytes("COURT_ORDER")
             ]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, courtOrderData, 0);
             await rtaProxy.connect(rta2).confirmOperation(3);

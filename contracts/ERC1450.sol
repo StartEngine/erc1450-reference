@@ -78,7 +78,7 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
         uint256 issuanceDate;
     }
 
-    // Holder address => array of token batches (FIFO ordered)
+    // Holder address => array of token batches
     // Solidity automatically initializes mappings to default values (empty arrays)
     // slither-disable-start uninitialized-state
     mapping(address => TokenBatch[]) private _holderBatches;
@@ -274,7 +274,7 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
             _balances[to] += amount;
         }
 
-        // Add to holder's token batches (maintaining FIFO order by issuanceDate)
+        // Add to holder's token batches
         _addTokenBatch(to, amount, regulationType, issuanceDate);
 
         // Track total supply per regulation
@@ -354,13 +354,13 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
             revert ERC20InsufficientBalance(from, fromBalance, amount);
         }
 
+        // Burn tokens, emitting TokensBurned events for each regulation
+        _burnTokens(from, amount);
+
         unchecked {
             _balances[from] = fromBalance - amount;
             _totalSupply -= amount;
         }
-
-        // Burn tokens using FIFO, emitting TokensBurned events for each regulation
-        _burnTokensFIFO(from, amount);
 
         emit Transfer(from, address(0), amount);
         return true;
@@ -375,19 +375,33 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
             revert ERC20InvalidSender(address(0));
         }
 
-        // Check if holder has enough tokens of this specific regulation
-        uint256 regulationBalance = _getRegulationBalance(from, regulationType);
-        require(regulationBalance >= amount, "ERC1450: Insufficient regulation balance");
-
         uint256 fromBalance = _balances[from];
+        if (fromBalance < amount) {
+            revert ERC20InsufficientBalance(from, fromBalance, amount);
+        }
+
+        // Burn tokens of specific regulation type
+        uint256 remainingToBurn = amount;
+        TokenBatch[] storage batches = _holderBatches[from];
+
+        for (uint256 i = 0; i < batches.length && remainingToBurn > 0; i++) {
+            if (batches[i].regulationType == regulationType && batches[i].amount > 0) {
+                uint256 burnFromBatch = batches[i].amount > remainingToBurn ? remainingToBurn : batches[i].amount;
+
+                batches[i].amount -= burnFromBatch;
+                remainingToBurn -= burnFromBatch;
+                _regulationSupply[regulationType] -= burnFromBatch;
+
+                emit TokensBurned(from, burnFromBatch, regulationType, batches[i].issuanceDate);
+            }
+        }
+
+        require(remainingToBurn == 0, "ERC1450: Insufficient tokens of specified regulation");
+
         unchecked {
             _balances[from] = fromBalance - amount;
             _totalSupply -= amount;
-            _regulationSupply[regulationType] -= amount;
         }
-
-        // Burn specific regulation tokens
-        _burnSpecificRegulation(from, amount, regulationType);
 
         emit Transfer(from, address(0), amount);
         return true;
@@ -759,19 +773,20 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
         return frozenAccounts[account];
     }
 
-    // ============ Court Orders ============
+    // ============ Controller Operations (ERC-1644) ============
 
-    function executeCourtOrder(
+    function controllerTransfer(
         address from,
         address to,
-        uint256 amount,
-        bytes32 documentHash
+        uint256 value,
+        bytes calldata data,
+        bytes calldata operatorData
     ) external override onlyTransferAgent {
         // Force transfer regardless of frozen status
-        _transfer(from, to, amount);
+        _transfer(from, to, value);
 
-        // Emit event with document hash for audit trail
-        emit CourtOrderExecuted(from, to, amount, documentHash, block.timestamp);
+        // Emit ERC-1644 standard event
+        emit ControllerTransfer(msg.sender, from, to, value, data, operatorData);
     }
 
     // ============ Introspection ============
@@ -817,9 +832,6 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
             _balances[from] = fromBalance - amount;
             _balances[to] += amount;
         }
-
-        // Transfer tokens using FIFO to maintain regulation tracking
-        _transferTokensFIFO(from, to, amount);
 
         emit Transfer(from, to, amount);
     }
@@ -927,7 +939,7 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
     // ============ Regulation Tracking Internal Functions ============
 
     /**
-     * @dev Add tokens to holder's batches, maintaining FIFO order by issuance date
+     * @dev Add tokens to holder's batches
      */
     function _addTokenBatch(
         address holder,
@@ -937,14 +949,8 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
     ) internal {
         TokenBatch[] storage batches = _holderBatches[holder];
 
-        // Find the correct position to insert (maintain order by issuanceDate)
-        uint256 insertIndex = batches.length;
+        // Try to merge with existing batch of same regulation and date
         for (uint256 i = 0; i < batches.length; i++) {
-            if (batches[i].issuanceDate > issuanceDate) {
-                insertIndex = i;
-                break;
-            }
-            // If same regulation and date, merge with existing batch
             if (batches[i].regulationType == regulationType &&
                 batches[i].issuanceDate == issuanceDate) {
                 batches[i].amount += amount;
@@ -952,34 +958,18 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
             }
         }
 
-        // Insert new batch at the correct position
-        TokenBatch memory newBatch = TokenBatch({
-            amount: amount,
-            regulationType: regulationType,
-            issuanceDate: issuanceDate
-        });
-
-        if (insertIndex == batches.length) {
-            batches.push(newBatch);
-        } else {
-            // Shift elements and insert
-            batches.push(batches[batches.length - 1]);
-            for (uint256 i = batches.length - 1; i > insertIndex; i--) {
-                batches[i] = batches[i - 1];
-            }
-            batches[insertIndex] = newBatch;
-        }
+        // Add new batch if no match found
+        batches.push(TokenBatch(amount, regulationType, issuanceDate));
     }
 
     /**
-     * @dev Burn tokens using FIFO, emitting TokensBurned events for each regulation
+     * @dev Burn tokens from holder's batches, emitting TokensBurned events for each regulation
      */
-    function _burnTokensFIFO(address from, uint256 amount) internal {
+    function _burnTokens(address from, uint256 amount) internal {
         TokenBatch[] storage batches = _holderBatches[from];
         uint256 remaining = amount;
-        uint256 i = 0;
 
-        while (remaining > 0 && i < batches.length) {
+        for (uint256 i = 0; i < batches.length && remaining > 0; i++) {
             if (batches[i].amount > 0) {
                 uint256 burnAmount = batches[i].amount > remaining ? remaining : batches[i].amount;
 
@@ -990,102 +980,7 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
                 // Emit TokensBurned event for this regulation
                 emit TokensBurned(from, burnAmount, batches[i].regulationType, batches[i].issuanceDate);
             }
-            i++;
-        }
-
-        // Clean up empty batches
-        _cleanupEmptyBatches(from);
-    }
-
-    /**
-     * @dev Burn tokens of a specific regulation type
-     */
-    function _burnSpecificRegulation(address from, uint256 amount, uint16 regulationType) internal {
-        TokenBatch[] storage batches = _holderBatches[from];
-        uint256 remaining = amount;
-        uint256 oldestIssuance = 0;
-
-        // Burn from oldest issuance date first (FIFO within regulation)
-        for (uint256 i = 0; i < batches.length && remaining > 0; i++) {
-            if (batches[i].regulationType == regulationType && batches[i].amount > 0) {
-                uint256 burnAmount = batches[i].amount > remaining ? remaining : batches[i].amount;
-
-                batches[i].amount -= burnAmount;
-                remaining -= burnAmount;
-
-                if (oldestIssuance == 0) {
-                    oldestIssuance = batches[i].issuanceDate;
-                }
-
-                // Emit TokensBurned event
-                emit TokensBurned(from, burnAmount, regulationType, batches[i].issuanceDate);
-            }
-        }
-
-        // Clean up empty batches
-        _cleanupEmptyBatches(from);
-    }
-
-    /**
-     * @dev Transfer tokens using FIFO
-     */
-    function _transferTokensFIFO(address from, address to, uint256 amount) internal {
-        TokenBatch[] storage fromBatches = _holderBatches[from];
-        uint256 remaining = amount;
-        uint256 i = 0;
-
-        while (remaining > 0 && i < fromBatches.length) {
-            if (fromBatches[i].amount > 0) {
-                uint256 transferAmount = fromBatches[i].amount > remaining ? remaining : fromBatches[i].amount;
-
-                fromBatches[i].amount -= transferAmount;
-                remaining -= transferAmount;
-
-                // Add to recipient's batches
-                _addTokenBatch(to, transferAmount, fromBatches[i].regulationType, fromBatches[i].issuanceDate);
-            }
-            i++;
-        }
-
-        // Clean up empty batches
-        _cleanupEmptyBatches(from);
-    }
-
-    /**
-     * @dev Get balance of a specific regulation type for a holder
-     */
-    function _getRegulationBalance(address holder, uint16 regulationType) internal view returns (uint256) {
-        TokenBatch[] memory batches = _holderBatches[holder];
-        uint256 balance = 0;
-
-        for (uint256 i = 0; i < batches.length; i++) {
-            if (batches[i].regulationType == regulationType) {
-                balance += batches[i].amount;
-            }
-        }
-
-        return balance;
-    }
-
-    /**
-     * @dev Remove empty batches from holder's array
-     */
-    function _cleanupEmptyBatches(address holder) internal {
-        TokenBatch[] storage batches = _holderBatches[holder];
-        uint256 writeIndex = 0;
-
-        for (uint256 readIndex = 0; readIndex < batches.length; readIndex++) {
-            if (batches[readIndex].amount > 0) {
-                if (writeIndex != readIndex) {
-                    batches[writeIndex] = batches[readIndex];
-                }
-                writeIndex++;
-            }
-        }
-
-        // Remove empty slots at the end
-        while (batches.length > writeIndex) {
-            batches.pop();
         }
     }
+
 }

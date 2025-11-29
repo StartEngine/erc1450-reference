@@ -275,10 +275,10 @@ contract RTAProxyUpgradeable is Initializable, UUPSUpgradeable {
 
         // Check if this is a high-value transfer
         if (selector == IERC1450.transferFromRegulated.selector ||
-            selector == IERC1450.executeCourtOrder.selector) {
+            selector == IERC1450.controllerTransfer.selector) {
 
             // transferFromRegulated(address from, address to, uint256 amount, uint16 regulationType, uint256 issuanceDate)
-            // executeCourtOrder(address from, address to, uint256 amount, bytes32 documentHash)
+            // controllerTransfer(address from, address to, uint256 value, bytes data, bytes operatorData)
 
             // Calldata layout:
             // bytes 0-3: selector (4 bytes)

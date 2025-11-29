@@ -184,9 +184,10 @@ describe("Upgradeable Contract Focus - Final 1.5%", function () {
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, freezeData, [rta1, rta2]);
 
                 const amount = ethers.parseUnits(((i % 5, 10) + 10).toString(), 10);
-                const courtOrderData = tokenUpgradeable.interface.encodeFunctionData("executeCourtOrder", [
+                const courtOrderData = tokenUpgradeable.interface.encodeFunctionData("controllerTransfer", [
                     alice.address, bob.address, amount,
-                    ethers.keccak256(ethers.toUtf8Bytes(`multicycle-${i}`))
+                    ethers.keccak256(ethers.toUtf8Bytes(`multicycle-${i}`)),
+                    ethers.toUtf8Bytes("COURT_ORDER")
                 ]);
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, courtOrderData, [rta1, rta2]);
 

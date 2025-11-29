@@ -154,32 +154,37 @@ async function freezeAccount(account, frozen) {
     console.log(`✓ Account ${account} is now ${frozen ? 'frozen' : 'unfrozen'}`);
 }
 
-async function executeCourtOrder(from, to, amount, documentHash) {
-    console.log("\n=== EXECUTING COURT ORDER ===");
+async function controllerTransfer(from, to, amount, documentHash, operationType = "COURT_ORDER") {
+    console.log("\n=== EXECUTING CONTROLLER TRANSFER (ERC-1644) ===");
     const deployment = loadDeployment();
     const [, rta1, rta2] = await ethers.getSigners();
 
     const rtaProxy = await ethers.getContractAt("RTAProxy", deployment.contracts.RTAProxy);
     const token = await ethers.getContractAt("ERC1450", deployment.contracts.ERC1450);
 
-    // Prepare court order data
-    const courtData = token.interface.encodeFunctionData("executeCourtOrder", [
+    // Prepare controller transfer data (ERC-1644 compatible)
+    const data = documentHash; // Document hash as bytes
+    const operatorData = ethers.toUtf8Bytes(operationType);
+
+    const controllerData = token.interface.encodeFunctionData("controllerTransfer", [
         from,
         to,
         amount,
-        documentHash
+        data,
+        operatorData
     ]);
 
-    console.log("Executing court-ordered transfer:");
+    console.log("Executing controller transfer:");
     console.log(`  From: ${from}`);
     console.log(`  To: ${to}`);
     console.log(`  Amount: ${ethers.formatEther(amount)}`);
-    console.log(`  Document: ${documentHash}`);
+    console.log(`  Data (document hash): ${documentHash}`);
+    console.log(`  Operation type: ${operationType}`);
 
     // Submit operation
     const submitTx = await rtaProxy.connect(rta1).submitOperation(
         token.target,
-        courtData,
+        controllerData,
         0
     );
     const submitReceipt = await submitTx.wait();
@@ -192,7 +197,7 @@ async function executeCourtOrder(from, to, amount, documentHash) {
     // Second signature to execute
     await rtaProxy.connect(rta2).confirmOperation(operationId);
 
-    console.log(`✓ Court order executed successfully`);
+    console.log(`✓ Controller transfer executed successfully`);
 }
 
 async function getTokenInfo() {
@@ -262,11 +267,12 @@ async function main() {
                 break;
 
             case 'court-order':
+            case 'controller-transfer':
                 if (args.length < 5) {
-                    console.log("Usage: npx hardhat run scripts/rta-operations.js court-order <from> <to> <amount> <documentHash>");
+                    console.log("Usage: npx hardhat run scripts/rta-operations.js controller-transfer <from> <to> <amount> <documentHash> [operationType]");
                     process.exit(1);
                 }
-                await executeCourtOrder(args[1], args[2], ethers.parseEther(args[3]), args[4]);
+                await controllerTransfer(args[1], args[2], ethers.parseEther(args[3]), args[4], args[5] || "COURT_ORDER");
                 break;
 
             case 'info':
@@ -282,7 +288,7 @@ async function main() {
                 console.log("  process-transfer <requestId>            - Process a transfer request");
                 console.log("  set-broker <address> <true/false>      - Approve/revoke broker");
                 console.log("  freeze <account> <true/false>          - Freeze/unfreeze account");
-                console.log("  court-order <from> <to> <amount> <hash> - Execute court order");
+                console.log("  controller-transfer <from> <to> <amount> <hash> [type] - Execute controller transfer (ERC-1644)");
                 console.log("\nExample:");
                 console.log("  npx hardhat run scripts/rta-operations.js mint 0x123... 1000");
         }
@@ -308,6 +314,6 @@ module.exports = {
     processTransferRequest,
     setBrokerStatus,
     freezeAccount,
-    executeCourtOrder,
+    controllerTransfer,
     getTokenInfo
 };

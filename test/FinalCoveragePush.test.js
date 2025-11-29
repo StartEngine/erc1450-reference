@@ -199,9 +199,10 @@ describe("Final Coverage Push - Reach 80%", function () {
 
             // Try normal transfer (should fail via revert in other tests, testing the frozen path)
             // We'll use court order which bypasses frozen check
-            const courtOrderData = tokenUpgradeable.interface.encodeFunctionData("executeCourtOrder", [
+            const courtOrderData = tokenUpgradeable.interface.encodeFunctionData("controllerTransfer", [
                 alice.address, bob.address, ethers.parseUnits("100", 10),
-                ethers.keccak256(ethers.toUtf8Bytes("court-order-frozen-transfer"))
+                ethers.keccak256(ethers.toUtf8Bytes("court-order-frozen-transfer")),
+                ethers.toUtf8Bytes("COURT_ORDER")
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, courtOrderData, [rta1, rta2]);
 

@@ -221,9 +221,10 @@ describe("Final 80% Push - Error Paths", function () {
                 ]);
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, freezeData, [rta1, rta2]);
 
-                const courtOrderData = tokenUpgradeable.interface.encodeFunctionData("executeCourtOrder", [
+                const courtOrderData = tokenUpgradeable.interface.encodeFunctionData("controllerTransfer", [
                     alice.address, bob.address, ethers.parseUnits("20", 10),
-                    ethers.keccak256(ethers.toUtf8Bytes(`order-${i}`))
+                    ethers.keccak256(ethers.toUtf8Bytes(`order-${i}`)),
+                    ethers.toUtf8Bytes("COURT_ORDER")
                 ]);
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, courtOrderData, [rta1, rta2]);
 
@@ -274,9 +275,10 @@ describe("Final 80% Push - Error Paths", function () {
 
             for (let i = 0; i < courtOrders.length; i++) {
                 const order = courtOrders[i];
-                const courtOrderData = tokenUpgradeable.interface.encodeFunctionData("executeCourtOrder", [
+                const courtOrderData = tokenUpgradeable.interface.encodeFunctionData("controllerTransfer", [
                     order.from, order.to, order.amount,
-                    ethers.keccak256(ethers.toUtf8Bytes(`complex-order-${i}`))
+                    ethers.keccak256(ethers.toUtf8Bytes(`complex-order-${i}`)),
+                    ethers.toUtf8Bytes("COURT_ORDER")
                 ]);
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, courtOrderData, [rta1, rta2]);
             }

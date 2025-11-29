@@ -93,6 +93,16 @@ contract ERC1450Upgradeable is
     // slither-disable-end uninitialized-state
     mapping(uint16 => uint256) private _regulationSupply;
 
+    // Common US regulation types (examples, not enforced on-chain)
+    uint16 public constant REG_US_S1 = 0x0001;           // S-1 Registration (IPO)
+    uint16 public constant REG_US_D_504 = 0x0002;        // Regulation D Rule 504 ($10M max)
+    uint16 public constant REG_US_A_TIER_1 = 0x0004;     // Regulation A Tier I ($20M max)
+    uint16 public constant REG_US_A_TIER_2 = 0x0005;     // Regulation A Tier II ($75M max)
+    uint16 public constant REG_US_CF = 0x0006;           // Regulation Crowdfunding ($5M max)
+    uint16 public constant REG_US_D_506B = 0x0007;       // Regulation D 506(b) (no general solicitation)
+    uint16 public constant REG_US_D_506C = 0x0008;       // Regulation D 506(c) (accredited only)
+    uint16 public constant REG_US_S = 0x0009;            // Regulation S (offshore offerings)
+
     // Gap for future storage variables (standard practice for upgradeable contracts)
     uint256[43] private __gap; // Reduced by 2 for new storage variables
 
@@ -285,8 +295,9 @@ contract ERC1450Upgradeable is
             revert ERC20InvalidReceiver(address(0));
         }
 
-        // Validate regulation type
-        require(regulationType != 0, "ERC1450: Invalid regulation type");
+        // Validate regulation type and issuance date
+        require(regulationType > 0, "ERC1450: Invalid regulation type");
+        require(issuanceDate > 0, "ERC1450: Invalid issuance date");
         require(issuanceDate <= block.timestamp, "ERC1450: Future issuance date not allowed");
 
         _totalSupply += amount;
@@ -332,7 +343,8 @@ contract ERC1450Upgradeable is
                 revert ERC20InvalidReceiver(address(0));
             }
 
-            require(regulationType != 0, "ERC1450: Invalid regulation type");
+            require(regulationType > 0, "ERC1450: Invalid regulation type");
+            require(issuanceDate > 0, "ERC1450: Invalid issuance date");
             require(issuanceDate <= block.timestamp, "ERC1450: Future issuance date not allowed");
 
             // Update balances and supply
@@ -506,25 +518,16 @@ contract ERC1450Upgradeable is
         uint256[] memory issuanceDates
     ) {
         TokenBatch[] memory batches = _holderBatches[holder];
-        uint256 count = 0;
+        uint256 batchCount = batches.length;
 
-        // Count non-zero batches
-        for (uint256 i = 0; i < batches.length; i++) {
-            if (batches[i].amount > 0) count++;
-        }
+        regulationTypes = new uint16[](batchCount);
+        amounts = new uint256[](batchCount);
+        issuanceDates = new uint256[](batchCount);
 
-        regulationTypes = new uint16[](count);
-        amounts = new uint256[](count);
-        issuanceDates = new uint256[](count);
-
-        uint256 index = 0;
-        for (uint256 i = 0; i < batches.length; i++) {
-            if (batches[i].amount > 0) {
-                regulationTypes[index] = batches[i].regulationType;
-                amounts[index] = batches[i].amount;
-                issuanceDates[index] = batches[i].issuanceDate;
-                index++;
-            }
+        for (uint256 i = 0; i < batchCount; i++) {
+            regulationTypes[i] = batches[i].regulationType;
+            amounts[i] = batches[i].amount;
+            issuanceDates[i] = batches[i].issuanceDate;
         }
     }
 
@@ -565,8 +568,8 @@ contract ERC1450Upgradeable is
             revert ERC20InsufficientBalance(from, fromBalance, amount);
         }
 
-        // Burn tokens using FIFO (oldest first)
-        _burnTokensFIFO(from, amount);
+        // Burn tokens, emitting TokensBurned events for each regulation
+        _burnTokens(from, amount);
 
         unchecked {
             _balances[from] = fromBalance - amount;
@@ -776,19 +779,20 @@ contract ERC1450Upgradeable is
         return frozenAccounts[account];
     }
 
-    // ============ Court Orders ============
+    // ============ Controller Operations (ERC-1644) ============
 
-    function executeCourtOrder(
+    function controllerTransfer(
         address from,
         address to,
-        uint256 amount,
-        bytes32 documentHash
+        uint256 value,
+        bytes calldata data,
+        bytes calldata operatorData
     ) external override onlyTransferAgent {
         // Force transfer regardless of frozen status
-        _transfer(from, to, amount);
+        _transfer(from, to, value);
 
-        // Emit event with document hash for audit trail
-        emit CourtOrderExecuted(from, to, amount, documentHash, block.timestamp);
+        // Emit ERC-1644 standard event
+        emit ControllerTransfer(msg.sender, from, to, value, data, operatorData);
     }
 
     // ============ Introspection ============
@@ -954,12 +958,10 @@ contract ERC1450Upgradeable is
         batches.push(TokenBatch(amount, regulationType, issuanceDate));
     }
 
-    function _burnTokensFIFO(address from, uint256 amount) internal {
+    function _burnTokens(address from, uint256 amount) internal {
         TokenBatch[] storage batches = _holderBatches[from];
         uint256 remainingToBurn = amount;
 
-        // Sort batches by issuance date (oldest first) for FIFO
-        // Burn from oldest batches first
         for (uint256 i = 0; i < batches.length && remainingToBurn > 0; i++) {
             if (batches[i].amount > 0) {
                 uint256 burnFromBatch = batches[i].amount > remainingToBurn ? remainingToBurn : batches[i].amount;
@@ -973,23 +975,4 @@ contract ERC1450Upgradeable is
         }
     }
 
-    function _transferTokensFIFO(address from, address to, uint256 amount) internal {
-        TokenBatch[] storage fromBatches = _holderBatches[from];
-        uint256 remainingToTransfer = amount;
-
-        // Transfer using FIFO (oldest first)
-        for (uint256 i = 0; i < fromBatches.length && remainingToTransfer > 0; i++) {
-            if (fromBatches[i].amount > 0) {
-                uint256 transferAmount = fromBatches[i].amount > remainingToTransfer
-                    ? remainingToTransfer
-                    : fromBatches[i].amount;
-
-                fromBatches[i].amount -= transferAmount;
-                remainingToTransfer -= transferAmount;
-
-                // Add to recipient's batches
-                _addTokenBatch(to, transferAmount, fromBatches[i].regulationType, fromBatches[i].issuanceDate);
-            }
-        }
-    }
 }

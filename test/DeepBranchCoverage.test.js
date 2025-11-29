@@ -289,11 +289,12 @@ describe("Deep Branch Coverage - Push to 90%+", function () {
             const documentHash = ethers.keccak256(ethers.toUtf8Bytes("self-transfer-court-order"));
 
             const balanceBefore = await token.balanceOf(alice.address);
-            await token.connect(rta).executeCourtOrder(
+            await token.connect(rta).controllerTransfer(
                 alice.address,
                 alice.address,
                 ethers.parseUnits("100", 10),
-                documentHash
+                documentHash,
+                ethers.toUtf8Bytes("COURT_ORDER")
             );
             const balanceAfter = await token.balanceOf(alice.address);
 
@@ -377,11 +378,12 @@ describe("Deep Branch Coverage - Push to 90%+", function () {
             const documentHash = ethers.keccak256(ethers.toUtf8Bytes("self-transfer"));
 
             const balanceBefore = await tokenUpgradeable.balanceOf(alice.address);
-            await tokenUpgradeable.connect(rta).executeCourtOrder(
+            await tokenUpgradeable.connect(rta).controllerTransfer(
                 alice.address,
                 alice.address,
                 ethers.parseUnits("100", 10),
-                documentHash
+                documentHash,
+                ethers.toUtf8Bytes("COURT_ORDER")
             );
             const balanceAfter = await tokenUpgradeable.balanceOf(alice.address);
 

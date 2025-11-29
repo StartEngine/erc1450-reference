@@ -373,11 +373,12 @@ describe("RTAProxy Multi-Sig", function () {
 
         it("Should execute court orders", async function () {
             const documentHash = ethers.keccak256(ethers.toUtf8Bytes("court-order-456"));
-            const courtOrderData = token.interface.encodeFunctionData("executeCourtOrder", [
+            const courtOrderData = token.interface.encodeFunctionData("controllerTransfer", [
                 signer1.address,
                 signer2.address,
                 ethers.parseUnits("5000", 10),
-                documentHash
+                documentHash,
+                ethers.toUtf8Bytes("COURT_ORDER")
             ]);
 
             await rtaProxy.connect(signer1).submitOperation(token.target, courtOrderData, 0);

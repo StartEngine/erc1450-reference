@@ -329,23 +329,25 @@ describe("Upgradeable Contracts - Edge Cases & Additional Coverage", function ()
         });
     });
 
-    describe("Court Order Execution", function () {
-        it("Should execute court order with event", async function () {
+    describe("Controller Transfer (ERC-1644)", function () {
+        it("Should execute controller transfer with event", async function () {
             await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
 
             const documentHash = ethers.keccak256(ethers.toUtf8Bytes("court-order-123"));
-            const tx = await token.connect(rta).executeCourtOrder(
+            const operatorData = ethers.toUtf8Bytes("COURT_ORDER");
+            const tx = await token.connect(rta).controllerTransfer(
                 alice.address,
                 bob.address,
                 ethers.parseUnits("500", 10),
-                documentHash
+                documentHash,
+                operatorData
             );
 
             const receipt = await tx.wait();
             const event = receipt.logs.find(log => {
                 try {
                     const parsed = token.interface.parseLog(log);
-                    return parsed && parsed.name === "CourtOrderExecuted";
+                    return parsed && parsed.name === "ControllerTransfer";
                 } catch {
                     return false;
                 }
@@ -353,10 +355,12 @@ describe("Upgradeable Contracts - Edge Cases & Additional Coverage", function ()
 
             expect(event).to.not.be.undefined;
             const parsedEvent = token.interface.parseLog(event);
-            expect(parsedEvent.args[0]).to.equal(alice.address);
-            expect(parsedEvent.args[1]).to.equal(bob.address);
-            expect(parsedEvent.args[2]).to.equal(ethers.parseUnits("500", 10));
-            expect(parsedEvent.args[3]).to.equal(documentHash);
+            // ERC-1644 event: ControllerTransfer(controller, from, to, value, data, operatorData)
+            expect(parsedEvent.args.controller).to.equal(rta.address);
+            expect(parsedEvent.args.from).to.equal(alice.address);
+            expect(parsedEvent.args.to).to.equal(bob.address);
+            expect(parsedEvent.args.value).to.equal(ethers.parseUnits("500", 10));
+            expect(parsedEvent.args.data).to.equal(documentHash);
         });
     });
 

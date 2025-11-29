@@ -90,11 +90,12 @@ describe("ERC1450 Critical Error Paths - 100% Coverage", function () {
 
                 // Execute court order to zero address
                 await expect(
-                    token.connect(rta).executeCourtOrder(
+                    token.connect(rta).controllerTransfer(
                         alice.address,
                         ethers.ZeroAddress,
                         ethers.parseUnits("100", 10),
-                        documentHash
+                        documentHash,
+                        ethers.toUtf8Bytes("COURT_ORDER")
                     )
                 ).to.be.revertedWithCustomError(token, "ERC20InvalidReceiver");
             });

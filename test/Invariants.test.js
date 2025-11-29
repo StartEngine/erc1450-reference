@@ -172,16 +172,17 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
                 token.connect(rta).transferFromRegulated(bob.address, alice.address, ethers.parseUnits("50", 10), REG_US_A, issuanceDate)
             ).to.be.revertedWithCustomError(token, "ERC1450ComplianceCheckFailed");
 
-            // Court order should still work
+            // Controller transfer should still work (ERC-1644)
             const documentHash = ethers.keccak256(ethers.toUtf8Bytes("court-order"));
             await expect(
-                token.connect(rta).executeCourtOrder(
+                token.connect(rta).controllerTransfer(
                     alice.address,
                     bob.address,
                     ethers.parseUnits("30", 10),
-                    documentHash
+                    documentHash,
+                    ethers.toUtf8Bytes("COURT_ORDER")
                 )
-            ).to.emit(token, "CourtOrderExecuted");
+            ).to.emit(token, "ControllerTransfer");
         });
     });
 

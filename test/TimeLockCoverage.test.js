@@ -155,11 +155,12 @@ describe("Time-Lock Coverage Tests - Reach 90%+", function () {
 
         it("Should require time-lock for high-value executeCourtOrder", async function () {
             // Encode high-value court order
-            const courtOrderData = token.interface.encodeFunctionData("executeCourtOrder", [
+            const courtOrderData = token.interface.encodeFunctionData("controllerTransfer", [
                 alice.address,
                 bob.address,
                 HIGH_VALUE,
-                ethers.keccak256(ethers.toUtf8Bytes("court-order-123"))
+                ethers.keccak256(ethers.toUtf8Bytes("court-order-123")),
+                ethers.toUtf8Bytes("COURT_ORDER")
             ]);
 
             // Verify requiresTimeLock returns true
@@ -283,11 +284,12 @@ describe("Time-Lock Coverage Tests - Reach 90%+", function () {
 
         it("Should require time-lock for high-value executeCourtOrder", async function () {
             // Encode high-value court order
-            const courtOrderData = tokenUpgradeable.interface.encodeFunctionData("executeCourtOrder", [
+            const courtOrderData = tokenUpgradeable.interface.encodeFunctionData("controllerTransfer", [
                 alice.address,
                 bob.address,
                 HIGH_VALUE,
-                ethers.keccak256(ethers.toUtf8Bytes("court-order-456"))
+                ethers.keccak256(ethers.toUtf8Bytes("court-order-456")),
+                ethers.toUtf8Bytes("COURT_ORDER")
             ]);
 
             // Verify requiresTimeLock returns true
@@ -365,7 +367,7 @@ describe("Time-Lock Coverage Tests - Reach 90%+", function () {
             }
         });
 
-        it("Should NOT require time-lock for operations other than transferFrom/executeCourtOrder", async function () {
+        it("Should NOT require time-lock for operations other than transferFrom/controllerTransfer", async function () {
             // Test with mint operation (high value but not subject to time-lock)
             const mintData = tokenUpgradeable.interface.encodeFunctionData("mint", [bob.address, HIGH_VALUE
             , REG_US_A, issuanceDate]);

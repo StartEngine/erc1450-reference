@@ -99,13 +99,14 @@ interface IERC1450 is IERC20, IERC165 {
         uint256 expiredAt
     );
 
-    // Court order event
-    event CourtOrderExecuted(
+    // ERC-1644 Controller Operations
+    event ControllerTransfer(
+        address indexed controller,
         address indexed from,
         address indexed to,
-        uint256 amount,
-        bytes32 documentHash,
-        uint256 timestamp
+        uint256 value,
+        bytes data,
+        bytes operatorData
     );
 
     // Fee events
@@ -398,20 +399,26 @@ interface IERC1450 is IERC20, IERC165 {
      */
     function updateRequestStatus(uint256 requestId, RequestStatus newStatus) external;
 
-    // ============ Court Orders & Recovery ============
+    // ============ Controller Operations (ERC-1644) ============
 
     /**
-     * @notice Execute court-ordered transfer (RTA only)
+     * @notice Controller transfer for forced transfers (RTA only) - ERC-1644 compatible
      * @param from Source address
      * @param to Destination address
-     * @param amount Number of tokens
-     * @param documentHash Court order document hash
+     * @param value Number of tokens
+     * @param data Arbitrary data for the transfer (e.g., document hash)
+     * @param operatorData Additional operator data (e.g., operation type: "COURT_ORDER", "REGULATORY_ACTION")
+     * @dev Use cases include:
+     *      - Court-ordered transfers (divorce, judgments)
+     *      - Regulatory enforcement actions
+     *      - Estate distributions with proper documentation
      */
-    function executeCourtOrder(
+    function controllerTransfer(
         address from,
         address to,
-        uint256 amount,
-        bytes32 documentHash
+        uint256 value,
+        bytes calldata data,
+        bytes calldata operatorData
     ) external;
 
     /**

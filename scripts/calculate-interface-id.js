@@ -35,7 +35,7 @@ async function main() {
         "processTransferRequest(uint256)",
         "rejectTransferRequest(uint256,uint16,bool)",
         "updateRequestStatus(uint256,uint8)",
-        "executeCourtOrder(address,address,uint256,bytes32)",
+        "controllerTransfer(address,address,uint256,bytes,bytes)",
         "setAccountFrozen(address,bool)",
         "isAccountFrozen(address)"
     ];

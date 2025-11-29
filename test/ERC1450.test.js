@@ -343,13 +343,15 @@ describe("ERC1450 Security Token", function () {
             await token.connect(rta).setAccountFrozen(alice.address, true);
             await token.connect(rta).setAccountFrozen(bob.address, true);
 
-            // Execute court order
-            const documentHash = ethers.keccak256(ethers.toUtf8Bytes("court-order-123"));
-            await token.connect(rta).executeCourtOrder(
+            // Execute controller transfer (ERC-1644)
+            const data = ethers.keccak256(ethers.toUtf8Bytes("court-order-123"));
+            const operatorData = ethers.toUtf8Bytes("COURT_ORDER");
+            await token.connect(rta).controllerTransfer(
                 alice.address,
                 bob.address,
                 ethers.parseUnits("500", 10),
-                documentHash
+                data,
+                operatorData
             );
 
             expect(await token.balanceOf(alice.address)).to.equal(ethers.parseUnits("500", 10));

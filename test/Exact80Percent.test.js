@@ -296,9 +296,10 @@ describe("Exact 80% - Targeted Branch Coverage", function () {
                 ]);
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, freezeData, [rta1, rta2]);
 
-                const courtOrderData = tokenUpgradeable.interface.encodeFunctionData("executeCourtOrder", [
+                const courtOrderData = tokenUpgradeable.interface.encodeFunctionData("controllerTransfer", [
                     alice.address, bob.address, ethers.parseUnits("30", 10),
-                    ethers.keccak256(ethers.toUtf8Bytes(`order-cycle-${i}`))
+                    ethers.keccak256(ethers.toUtf8Bytes(`order-cycle-${i}`)),
+                    ethers.toUtf8Bytes("COURT_ORDER")
                 ]);
                 await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, courtOrderData, [rta1, rta2]);
 
