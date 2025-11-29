@@ -241,33 +241,6 @@ describe("Coverage Boost Tests", function () {
     });
 
     describe("RTAProxy Coverage", function () {
-        it("Should test operation with expired time-lock", async function () {
-            // Mint enough tokens for high-value transfer
-            const mintData = token.interface.encodeFunctionData("mint", [
-                alice.address, ethers.parseUnits("2000000", 10), REG_US_A, issuanceDate1
-            ]);
-            await submitAndConfirmOperation(rtaProxy, tokenAddress, mintData, [rta1, rta2]);
-
-            // Submit high-value transfer (1M tokens = threshold, will require time-lock)
-            const transferData = token.interface.encodeFunctionData("transferFromRegulated", [
-                alice.address, bob.address, ethers.parseUnits("1000000", 10), REG_US_A, issuanceDate1
-            ]);
-
-            await rtaProxy.connect(rta1).submitOperation(tokenAddress, transferData, 0);
-
-            // Try to confirm immediately (should fail due to time-lock)
-            await expect(
-                rtaProxy.connect(rta2).confirmOperation(1)
-            ).to.be.revertedWithCustomError(rtaProxy, "TimeLockNotExpired");
-
-            // Fast forward time
-            await time.increase(24 * 60 * 60 + 1); // 24 hours + 1 second
-
-            // Now it should work
-            await rtaProxy.connect(rta2).confirmOperation(1);
-            expect(await token.balanceOf(bob.address)).to.equal(ethers.parseUnits("1000000", 10));
-        });
-
         it("Should test signer removal edge case", async function () {
             const rtaProxyAddress = await rtaProxy.getAddress();
 

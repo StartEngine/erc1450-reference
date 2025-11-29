@@ -166,43 +166,6 @@ describe("Branch Coverage Push to 85%", function () {
         });
     });
 
-    describe("RTAProxyUpgradeable - RequiresTimeLock Short Data Branch", function () {
-        it("Should return false for data shorter than 100 bytes with transfer selector", async function () {
-            const transferSelector = tokenUpgradeable.interface.getFunction("transferFromRegulated").selector;
-            const shortData = transferSelector + "00".repeat(60);
-            const result = await rtaProxyUpgradeable.requiresTimeLock(shortData);
-            expect(result).to.equal(false);
-        });
-
-        it("Should return false for empty data", async function () {
-            const result = await rtaProxyUpgradeable.requiresTimeLock("0x");
-            expect(result).to.equal(false);
-        });
-
-        it("Should return false for data with 3 bytes", async function () {
-            const result = await rtaProxyUpgradeable.requiresTimeLock("0x123456");
-            expect(result).to.equal(false);
-        });
-    });
-
-    describe("RTAProxyUpgradeable - AddInternalWallet Branches", function () {
-        it("Should revert addInternalWallet with zero address", async function () {
-            const addWalletData = rtaProxyUpgradeable.interface.encodeFunctionData("addInternalWallet", [
-                ethers.ZeroAddress
-            ]);
-            await submitAndExpectFailure(rtaProxyUpgradeable, await rtaProxyUpgradeable.getAddress(), addWalletData, [rta1, rta2]);
-        });
-
-        it("Should revert addInternalWallet for already registered wallet", async function () {
-            const proxyAddress = await rtaProxyUpgradeable.getAddress();
-            const addWalletData = rtaProxyUpgradeable.interface.encodeFunctionData("addInternalWallet", [
-                alice.address
-            ]);
-            await submitAndConfirmOperation(rtaProxyUpgradeable, proxyAddress, addWalletData, [rta1, rta2]);
-            await submitAndExpectFailure(rtaProxyUpgradeable, proxyAddress, addWalletData, [rta1, rta2]);
-        });
-    });
-
     describe("RTAProxyUpgradeable - RemoveSigner Branch", function () {
         it("Should revert removeSigner if would break multi-sig threshold", async function () {
             const proxyAddress = await rtaProxyUpgradeable.getAddress();
@@ -273,15 +236,6 @@ describe("Branch Coverage Push to 85%", function () {
                 ethers.ZeroAddress
             ]);
             await submitAndExpectFailure(rtaProxy, tokenAddress, changeIssuerData, [rta1, rta2]);
-        });
-    });
-
-    describe("RTAProxy - RequiresTimeLock Short Data Branch", function () {
-        it("Should return false for transfer selector with insufficient data", async function () {
-            const transferSelector = token.interface.getFunction("transferFromRegulated").selector;
-            const shortData = transferSelector + "00".repeat(60);
-            const result = await rtaProxy.requiresTimeLock(shortData);
-            expect(result).to.equal(false);
         });
     });
 

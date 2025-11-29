@@ -87,25 +87,6 @@ describe("Deep Branch Coverage - Push to 90%+", function () {
             expect(op.value).to.equal(value);
         });
 
-        it("Should test requiresTimeLock function with different selectors", async function () {
-            // Test with empty data
-            expect(await rtaProxy.requiresTimeLock("0x")).to.be.false;
-
-            // Test with short data
-            expect(await rtaProxy.requiresTimeLock("0x1234")).to.be.false;
-
-            // Test with transferFrom selector
-            const transferFromData = token.interface.encodeFunctionData("transferFrom", [
-                alice.address,
-                bob.address,
-                ethers.parseUnits("100", 10)
-            ]);
-            expect(await rtaProxy.requiresTimeLock(transferFromData)).to.be.false;
-
-            // Test with random selector
-            expect(await rtaProxy.requiresTimeLock("0x12345678")).to.be.false;
-        });
-
         it("Should handle operations with zero value", async function () {
             // Most operations will have zero value - just verify this path works
             const tx = await rtaProxy.connect(rta).submitOperation(
@@ -162,11 +143,6 @@ describe("Deep Branch Coverage - Push to 90%+", function () {
 
             expect(await rtaProxyUpgradeable.hasConfirmed(operationId, rta.address)).to.be.true;
             expect(await rtaProxyUpgradeable.hasConfirmed(operationId, signer2.address)).to.be.false;
-        });
-
-        it("Should test requiresTimeLock function", async function () {
-            expect(await rtaProxyUpgradeable.requiresTimeLock("0x")).to.be.false;
-            expect(await rtaProxyUpgradeable.requiresTimeLock("0x1234")).to.be.false;
         });
 
         it("Should handle operations with zero value", async function () {

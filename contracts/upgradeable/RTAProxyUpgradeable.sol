@@ -3,17 +3,15 @@ pragma solidity ^0.8.27;
 
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "../interfaces/IERC1450.sol";
 
 /**
  * @title RTAProxyUpgradeable
- * @dev Upgradeable proxy contract for RTA operations with multi-signature and time-lock features
+ * @dev Upgradeable proxy contract for RTA operations with multi-signature security
  * @notice This contract acts as the immutable transfer agent for ERC-1450 tokens
  *
  * The RTAProxy pattern provides:
  * - Protection against single key compromise
  * - Multi-signature requirements for critical operations
- * - Time-locks for high-value transfers
  * - Audit trail of all RTA actions
  * - Upgradeability for bug fixes and improvements
  *
@@ -41,18 +39,9 @@ contract RTAProxyUpgradeable is Initializable, UUPSUpgradeable {
     mapping(uint256 => Operation) public operations;
     uint256 public operationCount;
 
-    // Time-lock for high-value transfers
-    // Note: Assumes all tokens use 10 decimals (enforced in se-token-manager)
-    uint256 public constant HIGH_VALUE_THRESHOLD = 1000000 * 10**10; // 1M tokens (10 decimals)
-    uint256 public constant TIME_LOCK_DURATION = 24 hours;
-
     // Upgrade control
     bool private _upgradeAuthorized;
     uint256 private _authorizedUpgradeOperation;
-
-    // Internal wallet registry
-    mapping(address => bool) private internalWallets;
-    uint256 public internalWalletCount;
 
     // Gap for future storage variables (standard practice for upgradeable contracts)
     uint256[45] private __gap;
@@ -66,8 +55,6 @@ contract RTAProxyUpgradeable is Initializable, UUPSUpgradeable {
     event OperationExecuted(uint256 indexed operationId);
     event OperationRevoked(uint256 indexed operationId, address indexed signer);
     event UpgradeAuthorized(uint256 indexed operationId, address indexed newImplementation);
-    event InternalWalletAdded(address indexed wallet, uint256 timestamp);
-    event InternalWalletRemoved(address indexed wallet, uint256 timestamp);
     event ETHReceived(address indexed from, uint256 amount);
 
     // Errors
@@ -77,7 +64,6 @@ contract RTAProxyUpgradeable is Initializable, UUPSUpgradeable {
     error NotConfirmed();
     error InsufficientConfirmations();
     error OperationAlreadyExecuted();
-    error TimeLockNotExpired();
     error InvalidSignerCount();
     error UpgradeNotAuthorized();
 
@@ -257,59 +243,6 @@ contract RTAProxyUpgradeable is Initializable, UUPSUpgradeable {
         _checkAndExecute(operationId);
     }
 
-    // ============ High-Value Transfer Time-Lock ============
-
-    /**
-     * @notice Check if an operation requires time-lock
-     * @param data The encoded function call to check
-     * @return bool True if time-lock is required
-     */
-    function requiresTimeLock(bytes memory data) public view returns (bool) {
-        // Decode the function selector
-        if (data.length < 4) return false;
-
-        bytes4 selector;
-        assembly {
-            selector := mload(add(data, 32))
-        }
-
-        // Check if this is a high-value transfer
-        if (selector == IERC1450.transferFromRegulated.selector ||
-            selector == IERC1450.controllerTransfer.selector) {
-
-            // transferFromRegulated(address from, address to, uint256 amount, uint16 regulationType, uint256 issuanceDate)
-            // controllerTransfer(address from, address to, uint256 value, bytes data, bytes operatorData)
-
-            // Calldata layout:
-            // bytes 0-3: selector (4 bytes)
-            // bytes 4-35: param 1 (address from)
-            // bytes 36-67: param 2 (address to)
-            // bytes 68-99: param 3 (uint256 amount) <- we want this
-            // (additional params after amount are ignored for time-lock check)
-
-            if (data.length < 100) return false; // Not enough data
-
-            address toAddress;
-            uint256 amount;
-            assembly {
-                // Load 'to' address from bytes 36-67 (offset by 32 for length prefix + 36 for position)
-                toAddress := mload(add(data, 68))
-                // Load amount from bytes 68-99 (offset by 32 for length prefix + 68 for position)
-                amount := mload(add(data, 100))
-            }
-
-            // No time-lock needed for internal transfers regardless of amount
-            if (internalWallets[toAddress]) {
-                return false;
-            }
-
-            // Time-lock required for high-value external transfers
-            return amount >= HIGH_VALUE_THRESHOLD;
-        }
-
-        return false;
-    }
-
     // ============ Internal Functions ============
 
     function _checkAndExecute(uint256 operationId) internal {
@@ -326,13 +259,6 @@ contract RTAProxyUpgradeable is Initializable, UUPSUpgradeable {
 
         if (activeConfirmations < requiredSignatures) {
             revert InsufficientConfirmations();
-        }
-
-        // Check time-lock for high-value transfers
-        if (requiresTimeLock(op.data)) {
-            if (block.timestamp < op.timestamp + TIME_LOCK_DURATION) {
-                revert TimeLockNotExpired();
-            }
         }
 
         op.executed = true;
@@ -485,56 +411,6 @@ contract RTAProxyUpgradeable is Initializable, UUPSUpgradeable {
      */
     function version() external pure returns (string memory) {
         return "1.12.0";
-    }
-
-    // ============ Internal Wallet Registry Functions ============
-
-    /**
-     * @notice Add a wallet to the internal registry (no time-lock for transfers to this wallet)
-     * @dev Must be called through multi-sig operation. Used for treasury, operational, and escrow wallets.
-     * @param wallet The wallet address to add to internal registry
-     */
-    function addInternalWallet(address wallet) external {
-        require(msg.sender == address(this), "Must be called through multi-sig");
-        require(wallet != address(0), "Invalid wallet address");
-        require(!internalWallets[wallet], "Wallet already registered");
-
-        internalWallets[wallet] = true;
-        internalWalletCount++;
-
-        emit InternalWalletAdded(wallet, block.timestamp);
-    }
-
-    /**
-     * @notice Remove a wallet from the internal registry
-     * @dev Must be called through multi-sig operation
-     * @param wallet The wallet address to remove from internal registry
-     */
-    function removeInternalWallet(address wallet) external {
-        require(msg.sender == address(this), "Must be called through multi-sig");
-        require(internalWallets[wallet], "Wallet not registered");
-
-        internalWallets[wallet] = false;
-        internalWalletCount--;
-
-        emit InternalWalletRemoved(wallet, block.timestamp);
-    }
-
-    /**
-     * @notice Check if a wallet is registered as internal
-     * @param wallet The wallet address to check
-     * @return bool True if the wallet is registered as internal
-     */
-    function isInternalWallet(address wallet) external view returns (bool) {
-        return internalWallets[wallet];
-    }
-
-    /**
-     * @notice Get the count of registered internal wallets
-     * @return uint256 The number of internal wallets currently registered
-     */
-    function getInternalWalletCount() external view returns (uint256) {
-        return internalWalletCount;
     }
 
     // ============ ETH Receive Function ============

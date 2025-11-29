@@ -700,81 +700,6 @@ describe("Branch Coverage Push to 90%", function () {
         });
     });
 
-
-    describe("RTAProxy - requiresTimeLock with internal wallets (lines 212-256)", function () {
-        beforeEach(async function () {
-            // Set up token with RTAProxy as transfer agent
-            token = await ERC1450.deploy(
-                "Security Token",
-                "SEC",
-                10,
-                issuer.address,
-                await rtaProxy.getAddress()
-            );
-            await token.waitForDeployment();
-        });
-
-        it("Should not require time-lock for transfer to internal wallet", async function () {
-            // Add internal wallet via multi-sig
-            const addWalletData = rtaProxy.interface.encodeFunctionData("addInternalWallet", [alice.address]);
-            await rtaProxy.connect(rta).submitOperation(await rtaProxy.getAddress(), addWalletData, 0);
-            await rtaProxy.connect(signers[0]).confirmOperation(0);
-
-            // Create high-value transfer
-            const mintData = token.interface.encodeFunctionData("mint", [
-                bob.address,
-                ethers.parseUnits("2000000", 10),
-                REG_US_A,
-                issuanceDate
-            ]);
-            await rtaProxy.connect(rta).submitOperation(await token.getAddress(), mintData, 0);
-            await rtaProxy.connect(signers[0]).confirmOperation(1);
-
-            // Transfer to internal wallet should not require time-lock
-            const transferData = token.interface.encodeFunctionData("transferFromRegulated", [
-                bob.address,
-                alice.address,
-                ethers.parseUnits("2000000", 10),
-                REG_US_A,
-                issuanceDate
-            ]);
-
-            const requiresTL = await rtaProxy.requiresTimeLock(transferData);
-            expect(requiresTL).to.be.false;
-        });
-
-        it("Should require time-lock for high-value external transfer", async function () {
-            const transferData = token.interface.encodeFunctionData("transferFromRegulated", [
-                alice.address,
-                bob.address,
-                ethers.parseUnits("2000000", 10),
-                REG_US_A,
-                issuanceDate
-            ]);
-
-            const requiresTL = await rtaProxy.requiresTimeLock(transferData);
-            expect(requiresTL).to.be.true;
-        });
-
-        it("Should require time-lock for high-value court order", async function () {
-            const courtOrderData = token.interface.encodeFunctionData("controllerTransfer", [
-                alice.address,
-                bob.address,
-                ethers.parseUnits("2000000", 10),
-                ethers.keccak256(ethers.toUtf8Bytes("court-order")),
-                ethers.toUtf8Bytes("COURT_ORDER")
-            ]);
-
-            const requiresTL = await rtaProxy.requiresTimeLock(courtOrderData);
-            expect(requiresTL).to.be.true;
-        });
-
-        it("Should return false for short data", async function () {
-            const requiresTL = await rtaProxy.requiresTimeLock("0x1234");
-            expect(requiresTL).to.be.false;
-        });
-    });
-
     describe("RTAProxy - updateRequiredSignatures edge cases (line 403)", function () {
         it("Should handle zero required signatures check", async function () {
             const updateData = rtaProxy.interface.encodeFunctionData("updateRequiredSignatures", [0]);
@@ -799,49 +724,6 @@ describe("Branch Coverage Push to 90%", function () {
             } catch (error) {
                 // Operation failed due to InvalidSignerCount error
                 expect(error).to.not.be.null;
-            }
-        });
-    });
-
-    describe("RTAProxy - internal wallet management edge cases (lines 419-460)", function () {
-        it("Should revert addInternalWallet with zero address", async function () {
-            const addData = rtaProxy.interface.encodeFunctionData("addInternalWallet", [ethers.ZeroAddress]);
-            await rtaProxy.connect(rta).submitOperation(await rtaProxy.getAddress(), addData, 0);
-
-            try {
-                await rtaProxy.connect(signers[0]).confirmOperation(0);
-                expect.fail("Expected error");
-            } catch (error) {
-                expect(error.message).to.include("Invalid wallet address");
-            }
-        });
-
-        it("Should revert addInternalWallet when already registered", async function () {
-            const addData = rtaProxy.interface.encodeFunctionData("addInternalWallet", [alice.address]);
-            await rtaProxy.connect(rta).submitOperation(await rtaProxy.getAddress(), addData, 0);
-            await rtaProxy.connect(signers[0]).confirmOperation(0);
-
-            // Try to add again
-            const addData2 = rtaProxy.interface.encodeFunctionData("addInternalWallet", [alice.address]);
-            await rtaProxy.connect(rta).submitOperation(await rtaProxy.getAddress(), addData2, 0);
-
-            try {
-                await rtaProxy.connect(signers[0]).confirmOperation(1);
-                expect.fail("Expected error");
-            } catch (error) {
-                expect(error.message).to.include("Wallet already registered");
-            }
-        });
-
-        it("Should revert removeInternalWallet when not registered", async function () {
-            const removeData = rtaProxy.interface.encodeFunctionData("removeInternalWallet", [alice.address]);
-            await rtaProxy.connect(rta).submitOperation(await rtaProxy.getAddress(), removeData, 0);
-
-            try {
-                await rtaProxy.connect(signers[0]).confirmOperation(0);
-                expect.fail("Expected error");
-            } catch (error) {
-                expect(error.message).to.include("Wallet not registered");
             }
         });
     });
@@ -922,64 +804,6 @@ describe("RTAProxyUpgradeable Branch Coverage", function () {
                     { initializer: "initialize" }
                 )
             ).to.be.revertedWith("Duplicate signer");
-        });
-    });
-
-    describe("Time-lock and requiresTimeLock branches (lines 267-301)", function () {
-        it("Should return false for data less than 4 bytes", async function () {
-            expect(await rtaProxy.requiresTimeLock("0x12")).to.be.false;
-        });
-
-        it("Should return false for data less than 100 bytes for transfer", async function () {
-            // transferFromRegulated selector with incomplete data
-            const selector = "0x12345678";
-            expect(await rtaProxy.requiresTimeLock(selector + "00".repeat(50))).to.be.false;
-        });
-    });
-
-    describe("Internal wallet and signer management (lines 417-470)", function () {
-        it("Should successfully add and remove internal wallet", async function () {
-            const addData = rtaProxy.interface.encodeFunctionData("addInternalWallet", [alice.address]);
-            await rtaProxy.connect(rta).submitOperation(await rtaProxy.getAddress(), addData, 0);
-            await rtaProxy.connect(signers[0]).confirmOperation(0);
-
-            expect(await rtaProxy.isInternalWallet(alice.address)).to.be.true;
-            expect(await rtaProxy.getInternalWalletCount()).to.equal(1);
-
-            const removeData = rtaProxy.interface.encodeFunctionData("removeInternalWallet", [alice.address]);
-            await rtaProxy.connect(rta).submitOperation(await rtaProxy.getAddress(), removeData, 0);
-            await rtaProxy.connect(signers[0]).confirmOperation(1);
-
-            expect(await rtaProxy.isInternalWallet(alice.address)).to.be.false;
-            expect(await rtaProxy.getInternalWalletCount()).to.equal(0);
-        });
-
-        it("Should revert remove when wallet not registered", async function () {
-            const removeData = rtaProxy.interface.encodeFunctionData("removeInternalWallet", [alice.address]);
-            await rtaProxy.connect(rta).submitOperation(await rtaProxy.getAddress(), removeData, 0);
-
-            try {
-                await rtaProxy.connect(signers[0]).confirmOperation(0);
-                expect.fail("Expected error");
-            } catch (error) {
-                expect(error.message).to.include("Wallet not registered");
-            }
-        });
-
-        it("Should revert add when wallet already registered", async function () {
-            const addData = rtaProxy.interface.encodeFunctionData("addInternalWallet", [alice.address]);
-            await rtaProxy.connect(rta).submitOperation(await rtaProxy.getAddress(), addData, 0);
-            await rtaProxy.connect(signers[0]).confirmOperation(0);
-
-            const addData2 = rtaProxy.interface.encodeFunctionData("addInternalWallet", [alice.address]);
-            await rtaProxy.connect(rta).submitOperation(await rtaProxy.getAddress(), addData2, 0);
-
-            try {
-                await rtaProxy.connect(signers[0]).confirmOperation(1);
-                expect.fail("Expected error");
-            } catch (error) {
-                expect(error.message).to.include("Wallet already registered");
-            }
         });
     });
 

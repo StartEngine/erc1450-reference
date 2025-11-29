@@ -237,37 +237,6 @@ describe("RTAProxy Multi-Sig", function () {
         });
     });
 
-    describe("Time-Lock", function () {
-        it("Should detect operations requiring time-lock", async function () {
-            const highValue = ethers.parseUnits("1000000", 10); // 1M tokens = threshold
-            const transferData = token.interface.encodeFunctionData("transferFromRegulated", [
-                signer1.address,
-                signer2.address,
-                highValue,
-                REG_US_A,
-                issuanceDate
-            ]);
-
-            // Now implemented: requiresTimeLock checks amount >= HIGH_VALUE_THRESHOLD
-            expect(await rtaProxy.requiresTimeLock(transferData)).to.be.true;
-
-            // Low value transfers should not require time-lock
-            const lowValue = ethers.parseUnits("100", 10);
-            const lowValueData = token.interface.encodeFunctionData("transferFromRegulated", [
-                signer1.address,
-                signer2.address,
-                lowValue,
-                REG_US_A,
-                issuanceDate
-            ]);
-            expect(await rtaProxy.requiresTimeLock(lowValueData)).to.be.false;
-        });
-
-        it("Should handle empty data", async function () {
-            expect(await rtaProxy.requiresTimeLock("0x")).to.be.false;
-        });
-    });
-
     describe("Signer Management", function () {
         it("Should add new signer through multi-sig", async function () {
             const addSignerData = rtaProxy.interface.encodeFunctionData("addSigner", [

@@ -259,43 +259,6 @@ describe("Final Branch Push - Reach 80%", function () {
 
             expect(await tokenUpgradeable.balanceOf(bob.address)).to.equal(ethers.parseUnits("100", 10));
         });
-
-        it("Should test time-lock with various amounts", async function () {
-            // Mint large amount
-            const mintData = tokenUpgradeable.interface.encodeFunctionData("mint", [
-                alice.address, ethers.parseUnits("5000000", 10), REG_US_A, issuanceDate1
-            ]);
-            await rtaProxyUpgradeable.connect(rta1).submitOperation(tokenUpgradeableAddress, mintData, 0);
-            await rtaProxyUpgradeable.connect(rta2).confirmOperation(0);
-
-            // Test multiple threshold scenarios
-            const amounts = [
-                ethers.parseUnits("500000", 10),  // Below threshold
-                ethers.parseUnits("999999", 10),  // Just below
-                ethers.parseUnits("1000001", 10)  // Just above
-            ];
-
-            for (let i = 0; i < amounts.length; i++) {
-                const transferData = tokenUpgradeable.interface.encodeFunctionData("transferFromRegulated", [
-                    alice.address, [bob, carol, dave][i].address, amounts[i],
-                    REG_US_A, issuanceDate1
-                ]);
-                await rtaProxyUpgradeable.connect(rta1).submitOperation(tokenUpgradeableAddress, transferData, 0);
-
-                if (i < 2) {
-                    // Below threshold, should work immediately
-                    await rtaProxyUpgradeable.connect(rta2).confirmOperation(i + 1);
-                } else {
-                    // Above threshold, needs time-lock
-                    await expect(
-                        rtaProxyUpgradeable.connect(rta2).confirmOperation(i + 1)
-                    ).to.be.revertedWithCustomError(rtaProxyUpgradeable, "TimeLockNotExpired");
-
-                    await time.increase(24 * 60 * 60 + 1);
-                    await rtaProxyUpgradeable.connect(rta2).confirmOperation(i + 1);
-                }
-            }
-        });
     });
 
     describe("RTAProxy - Edge Case Coverage", function () {

@@ -353,22 +353,6 @@ describe("Branch Coverage Boost - Target 80%", function () {
 
     describe("RTAProxy - Additional Edge Cases", function () {
 
-        it("Should handle internal wallet operations", async function () {
-            const rtaAddress = await rtaProxy.getAddress();
-
-            // Add internal wallet
-            const addWalletData = rtaProxy.interface.encodeFunctionData("addInternalWallet", [alice.address]);
-            await submitAndConfirmOperation(rtaProxy, rtaAddress, addWalletData, [rta1, rta2]);
-
-            expect(await rtaProxy.isInternalWallet(alice.address)).to.be.true;
-
-            // Remove internal wallet
-            const removeWalletData = rtaProxy.interface.encodeFunctionData("removeInternalWallet", [alice.address]);
-            await submitAndConfirmOperation(rtaProxy, rtaAddress, removeWalletData, [rta1, rta2]);
-
-            expect(await rtaProxy.isInternalWallet(alice.address)).to.be.false;
-        });
-
         it("Should handle signer operations", async function () {
             const rtaAddress = await rtaProxy.getAddress();
 
