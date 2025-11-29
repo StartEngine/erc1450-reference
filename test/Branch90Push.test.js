@@ -262,7 +262,7 @@ describe("Branch Coverage Push to 90%", function () {
 
     describe("RTAProxy - version and edge cases", function () {
         it("Should return version", async function () {
-            expect(await rtaProxy.version()).to.equal("1.12.0");
+            expect(await rtaProxy.version()).to.equal("1.13.0");
         });
 
         it("Should handle operation submission and revocation", async function () {
@@ -286,7 +286,7 @@ describe("Branch Coverage Push to 90%", function () {
 
     describe("RTAProxyUpgradeable - version and edge cases", function () {
         it("Should return version", async function () {
-            expect(await rtaProxyUpgradeable.version()).to.equal("1.12.0");
+            expect(await rtaProxyUpgradeable.version()).to.equal("1.13.0");
         });
 
         it("Should handle getSigners correctly", async function () {
