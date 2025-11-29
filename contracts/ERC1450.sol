@@ -810,7 +810,7 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
      * @return string Version identifier (e.g., "1.10.1")
      */
     function version() external pure returns (string memory) {
-        return "1.11.0";
+        return "1.12.0";
     }
 
     // ============ Internal Functions ============

@@ -484,7 +484,7 @@ contract RTAProxyUpgradeable is Initializable, UUPSUpgradeable {
      * @return string Version identifier
      */
     function version() external pure returns (string memory) {
-        return "1.11.0";
+        return "1.12.0";
     }
 
     // ============ Internal Wallet Registry Functions ============

@@ -483,7 +483,7 @@ contract RTAProxy {
      * @return string Version identifier (e.g., "1.10.1")
      */
     function version() external pure returns (string memory) {
-        return "1.11.0";
+        return "1.12.0";
     }
 
 }
