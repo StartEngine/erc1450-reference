@@ -51,7 +51,7 @@ contract RTAProxyUpgradeable is Initializable, UUPSUpgradeable {
     uint256 private _authorizedUpgradeOperation;
 
     // Internal wallet registry
-    mapping(address => bool) public internalWallets;
+    mapping(address => bool) private internalWallets;
     uint256 public internalWalletCount;
 
     // Gap for future storage variables (standard practice for upgradeable contracts)
@@ -264,7 +264,7 @@ contract RTAProxyUpgradeable is Initializable, UUPSUpgradeable {
      * @param data The encoded function call to check
      * @return bool True if time-lock is required
      */
-    function requiresTimeLock(bytes memory data) public pure returns (bool) {
+    function requiresTimeLock(bytes memory data) public view returns (bool) {
         // Decode the function selector
         if (data.length < 4) return false;
 
@@ -285,15 +285,25 @@ contract RTAProxyUpgradeable is Initializable, UUPSUpgradeable {
             // bytes 4-35: param 1 (address from)
             // bytes 36-67: param 2 (address to)
             // bytes 68-99: param 3 (uint256 amount) <- we want this
+            // (additional params after amount are ignored for time-lock check)
 
             if (data.length < 100) return false; // Not enough data
 
+            address toAddress;
             uint256 amount;
             assembly {
+                // Load 'to' address from bytes 36-67 (offset by 32 for length prefix + 36 for position)
+                toAddress := mload(add(data, 68))
                 // Load amount from bytes 68-99 (offset by 32 for length prefix + 68 for position)
                 amount := mload(add(data, 100))
             }
 
+            // No time-lock needed for internal transfers regardless of amount
+            if (internalWallets[toAddress]) {
+                return false;
+            }
+
+            // Time-lock required for high-value external transfers
             return amount >= HIGH_VALUE_THRESHOLD;
         }
 
