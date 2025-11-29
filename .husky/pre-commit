@@ -1,6 +1,14 @@
 echo "🔨 Running pre-commit checks..."
 echo ""
 
+# Sync contract versions from package.json
+echo "🔄 Syncing contract versions..."
+node scripts/sync-version.js || exit 1
+echo ""
+
+# Stage any version changes
+git add contracts/*.sol contracts/**/*.sol 2>/dev/null || true
+
 # Compile Solidity contracts
 echo "📦 Compiling contracts with Hardhat..."
 npx hardhat compile || exit 1

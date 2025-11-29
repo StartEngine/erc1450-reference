@@ -92,6 +92,61 @@ npx hardhat run scripts/upgrade.js --network polygon
 
 For detailed upgradeability documentation, see [UPGRADEABILITY.md](./UPGRADEABILITY.md).
 
+## Contract Versioning
+
+All contracts include a `version()` function that returns the current contract version. This version is **automatically synced** with `package.json` to ensure consistency between the npm package version and deployed contracts.
+
+### How It Works
+
+```solidity
+// All contracts expose this function
+function version() external pure returns (string memory) {
+    return "1.10.1";  // Matches package.json version
+}
+```
+
+### Checking Deployed Contract Version
+
+```javascript
+// Query version from a deployed contract
+const rtaProxy = new ethers.Contract(proxyAddress, RTAProxyABI, provider);
+const version = await rtaProxy.version();
+console.log(`Deployed version: ${version}`);  // e.g., "1.10.1"
+```
+
+### Version Sync Mechanism
+
+The version in contracts is automatically synchronized via:
+
+1. **Pre-commit hook**: Runs `scripts/sync-version.js` before every commit
+2. **Pre-compile hook**: Runs before `npm run compile`
+
+This ensures:
+- Contract `version()` always matches `package.json` version
+- No manual updates needed when releasing new versions
+- Deployed contracts can be compared against local code
+
+### Why This Matters
+
+When you deploy a contract and later update the codebase, you need to know:
+- What version is deployed on-chain?
+- Is there a newer version available locally?
+- Does the deployed contract need an upgrade?
+
+The `version()` function enables automated tracking and comparison of deployed contracts against the current codebase.
+
+### Upgrade Detection Example
+
+```javascript
+// Compare deployed version with local artifacts
+const deployedVersion = await contract.version();  // "1.10.0"
+const localVersion = require('erc1450-reference/package.json').version;  // "1.10.1"
+
+if (deployedVersion !== localVersion) {
+    console.log(`Upgrade available: ${deployedVersion} → ${localVersion}`);
+}
+```
+
 ## Architecture
 
 ```
@@ -503,16 +558,19 @@ When updating contracts:
 
 1. **Make contract changes** and compile: `npm run compile`
 2. **Update version** in `package.json` (follow semantic versioning)
-3. **Commit changes**: `git commit -am "Release v1.4.0"`
-4. **Create git tag**: `git tag v1.4.0`
-5. **Push to GitHub**:
+3. **Compile again** to sync version to contracts: `npm run compile`
+   - This automatically runs `scripts/sync-version.js` which updates the `version()` function in all contracts
+4. **Commit changes**: `git commit -am "Release v1.10.1"`
+   - Pre-commit hook will verify version sync and run tests
+5. **Create git tag**: `git tag v1.10.1`
+6. **Push to GitHub**:
    ```bash
    git push origin main
-   git push origin v1.4.0
+   git push origin v1.10.1
    ```
-6. **Update dependent projects** to use the new version tag in their `package.json`
+7. **Update dependent projects** to use the new version tag in their `package.json`
 
-**Note:** No build scripts needed - git tags are the release mechanism.
+**Note:** Contract versions are automatically synced from `package.json` - no manual contract edits needed!
 
 ## Security & Audit Status
 

@@ -10,6 +10,8 @@
     "index.js"
   ],
   "scripts": {
+    "sync-version": "node scripts/sync-version.js",
+    "precompile": "npm run sync-version",
     "compile": "hardhat compile",
     "test": "hardhat test",
     "coverage": "hardhat coverage",

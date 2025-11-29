@@ -934,7 +934,7 @@ contract ERC1450Upgradeable is
      * @return string Version identifier
      */
     function version() external pure returns (string memory) {
-        return "1.0.0";
+        return "1.10.1";
     }
 
     // ============ Internal Regulation Tracking Functions ============

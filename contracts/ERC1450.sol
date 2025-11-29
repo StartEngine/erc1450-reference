@@ -789,6 +789,15 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
             super.supportsInterface(interfaceId);
     }
 
+    /**
+     * @notice Returns the contract version
+     * @dev Version is synced from package.json via scripts/sync-version.js
+     * @return string Version identifier (e.g., "1.10.1")
+     */
+    function version() external pure returns (string memory) {
+        return "1.10.1";
+    }
+
     // ============ Internal Functions ============
 
     function _transfer(address from, address to, uint256 amount) internal {

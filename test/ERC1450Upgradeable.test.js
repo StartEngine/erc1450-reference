@@ -1,6 +1,7 @@
 const { expect } = require("chai");
 const { ethers, upgrades } = require("hardhat");
 const { ERC1450RequestStatus } = require("./constants");
+const { version: PACKAGE_VERSION } = require("../package.json");
 
 describe("ERC1450Upgradeable Security Token", function () {
     // Common regulation constants for testing
@@ -60,8 +61,9 @@ describe("ERC1450Upgradeable Security Token", function () {
         });
 
         it("Should return correct version", async function () {
-            expect(await token.version()).to.equal("1.0.0");
-            expect(await rtaProxy.version()).to.equal("1.0.0");
+            // Version should match package.json (synced via scripts/sync-version.js)
+            expect(await token.version()).to.equal(PACKAGE_VERSION);
+            expect(await rtaProxy.version()).to.equal(PACKAGE_VERSION);
         });
 
         it("Should have proxy addresses different from implementation", async function () {

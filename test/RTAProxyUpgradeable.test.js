@@ -1,5 +1,6 @@
 const { expect } = require("chai");
 const { ethers, upgrades } = require("hardhat");
+const { version: PACKAGE_VERSION } = require("../package.json");
 
 describe("RTAProxyUpgradeable Multi-Sig", function () {
     // Common regulation constants for testing
@@ -69,7 +70,8 @@ describe("RTAProxyUpgradeable Multi-Sig", function () {
         });
 
         it("Should return correct version", async function () {
-            expect(await rtaProxy.version()).to.equal("1.0.0");
+            // Version should match package.json (synced via scripts/sync-version.js)
+            expect(await rtaProxy.version()).to.equal(PACKAGE_VERSION);
         });
     });
 

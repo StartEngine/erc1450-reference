@@ -474,4 +474,16 @@ contract RTAProxy {
      * @notice Event emitted when ETH is received
      */
     event ETHReceived(address indexed from, uint256 amount);
+
+    // ============ Version ============
+
+    /**
+     * @notice Returns the contract version
+     * @dev Version is synced from package.json via scripts/sync-version.js
+     * @return string Version identifier (e.g., "1.10.1")
+     */
+    function version() external pure returns (string memory) {
+        return "1.10.1";
+    }
+
 }
