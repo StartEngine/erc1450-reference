@@ -187,6 +187,23 @@ contract RTAProxy {
 
     // ============ Internal Functions ============
 
+    /**
+     * @dev Execute an operation after confirming sufficient signatures.
+     *
+     * SECURITY NOTE - Reentrancy Considerations:
+     * This function uses a low-level call to execute operations on target contracts.
+     * While `op.executed = true` is set BEFORE the external call (preventing replay of
+     * the same operation), the target contract could theoretically reenter this contract
+     * to submit or confirm OTHER operations.
+     *
+     * This is acceptable because:
+     * 1. RTA signers are trusted parties who control which contracts are targeted
+     * 2. New operations still require multi-sig confirmation from trusted signers
+     * 3. The same operation cannot be replayed (executed flag set first)
+     *
+     * GOVERNANCE REQUIREMENT: RTAProxy should only target known, audited contracts
+     * (e.g., ERC1450 tokens, fee vaults). Do not target arbitrary untrusted contracts.
+     */
     function _checkAndExecute(uint256 operationId) internal {
         Operation storage op = operations[operationId];
 

@@ -77,19 +77,17 @@ describe("RTAProxyUpgradeable Multi-Sig", function () {
 
     describe("Upgrade Mechanism", function () {
         it("Should allow signers to submit upgrade operation", async function () {
-            const newImpl = ethers.Wallet.createRandom().address;
-
+            // Use tokenAddress (a deployed contract) as dummy implementation
             await expect(
-                rtaProxy.connect(signer1).submitUpgradeOperation(newImpl)
+                rtaProxy.connect(signer1).submitUpgradeOperation(tokenAddress)
             ).to.emit(rtaProxy, "OperationSubmitted")
                 .withArgs(0, signer1.address);
         });
 
         it("Should require multi-sig for upgrades", async function () {
-            const newImpl = ethers.Wallet.createRandom().address;
-
+            // Use tokenAddress (a deployed contract) as dummy implementation
             // First signer submits
-            await rtaProxy.connect(signer1).submitUpgradeOperation(newImpl);
+            await rtaProxy.connect(signer1).submitUpgradeOperation(tokenAddress);
 
             // Operation should not be executed yet
             const op = await rtaProxy.getOperation(0);
@@ -97,15 +95,21 @@ describe("RTAProxyUpgradeable Multi-Sig", function () {
             expect(op.confirmations).to.equal(1);
 
             // After second confirmation, it would prepare for upgrade
-            // (actual upgrade would fail with random address, but the multi-sig part works)
+            // (actual upgrade would fail with wrong implementation, but the multi-sig part works)
         });
 
         it("Should reject upgrade from non-signers", async function () {
-            const newImpl = ethers.Wallet.createRandom().address;
+            await expect(
+                rtaProxy.connect(nonSigner).submitUpgradeOperation(tokenAddress)
+            ).to.be.reverted;
+        });
+
+        it("Should reject upgrade to EOA (no code)", async function () {
+            const eoaAddress = ethers.Wallet.createRandom().address;
 
             await expect(
-                rtaProxy.connect(nonSigner).submitUpgradeOperation(newImpl)
-            ).to.be.reverted;
+                rtaProxy.connect(signer1).submitUpgradeOperation(eoaAddress)
+            ).to.be.revertedWith("Implementation has no code");
         });
     });
 

@@ -90,11 +90,9 @@ describe("ERC1450Upgradeable Security Token", function () {
         });
 
         it("Should allow RTAProxy upgrades through multi-sig", async function () {
-            // Submit upgrade operation
-            const newImpl = ethers.Wallet.createRandom().address; // Dummy address for testing
-
+            // Submit upgrade operation using tokenAddress (a deployed contract) as dummy implementation
             await expect(
-                rtaProxy.connect(rta1).submitUpgradeOperation(newImpl)
+                rtaProxy.connect(rta1).submitUpgradeOperation(tokenAddress)
             ).to.emit(rtaProxy, "OperationSubmitted");
         });
     });
