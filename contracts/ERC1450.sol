@@ -584,6 +584,11 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
             revert ERC20InvalidReceiver(address(0));
         }
 
+        // Check frozen status - frozen accounts cannot request transfers
+        if (frozenAccounts[from]) {
+            revert ERC1450ComplianceCheckFailed(from, address(0));
+        }
+
         // Check authorization (must be token holder or approved broker)
         if (msg.sender != from && !approvedBrokers[msg.sender]) {
             revert OwnableUnauthorizedAccount(msg.sender);
@@ -636,6 +641,14 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
         );
 
         if (approved) {
+            // Check frozen status - use controllerTransfer for frozen account transfers
+            if (frozenAccounts[request.from]) {
+                revert ERC1450ComplianceCheckFailed(request.from, address(0));
+            }
+            if (frozenAccounts[request.to]) {
+                revert ERC1450ComplianceCheckFailed(request.to, address(0));
+            }
+
             // APPROVE: Update status and execute transfer
             if (request.status != RequestStatus.Approved) {
                 _updateRequestStatus(requestId, RequestStatus.Approved);
