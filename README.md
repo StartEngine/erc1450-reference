@@ -49,7 +49,6 @@ ERC-1450 enables compliant securities offerings under SEC regulations by providi
 
 ### 3. Multi-Sig Security (RTAProxy)
 - 2-of-3 multi-signature requirement for critical operations
-- Time-locks for high-value transfers
 - Protection against single point of failure
 - Immutable transfer agent once set to RTAProxy
 

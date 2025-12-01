@@ -665,8 +665,9 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
 
         _updateRequestStatus(requestId, RequestStatus.Rejected);
 
-        // Handle fee refund if requested
+        // Handle fee refund if requested (CEI pattern: update state before external calls)
         if (refundFee && request.feePaid > 0) {
+            collectedFees[request.feeToken] -= request.feePaid;
             if (request.feeToken == address(0)) {
                 // Refund native token
                 payable(request.requestedBy).transfer(request.feePaid);
@@ -674,7 +675,6 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
                 // Refund ERC20 token
                 IERC20(request.feeToken).safeTransfer(request.requestedBy, request.feePaid);
             }
-            collectedFees[request.feeToken] -= request.feePaid;
         }
 
         emit TransferRejected(requestId, reasonCode, refundFee);
