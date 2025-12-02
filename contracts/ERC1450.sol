@@ -780,6 +780,7 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
 
     function setAccountFrozen(address account, bool frozen) external override onlyTransferAgent {
         frozenAccounts[account] = frozen;
+        emit AccountFrozen(account, frozen, msg.sender);
     }
 
     function isAccountFrozen(address account) external view override returns (bool) {

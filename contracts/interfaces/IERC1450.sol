@@ -114,6 +114,9 @@ interface IERC1450 is IERC20, IERC165 {
     event FeesWithdrawn(address indexed token, uint256 amount, address indexed recipient);
     event BrokerStatusUpdated(address indexed broker, bool isApproved, address indexed updatedBy);
 
+    // Account restriction events
+    event AccountFrozen(address indexed account, bool frozen, address indexed frozenBy);
+
     // ============ Enums ============
 
     enum RequestStatus {
