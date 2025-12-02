@@ -1,5 +1,6 @@
 const { expect } = require("chai");
 const { ethers, upgrades } = require("hardhat");
+const { version: EXPECTED_VERSION } = require("../package.json");
 
 describe("Remaining Coverage - Final Push to 90%+", function () {
     const REG_US_A = 0x0001;
@@ -48,22 +49,22 @@ describe("Remaining Coverage - Final Push to 90%+", function () {
     describe("version() function coverage", function () {
         it("Should return version for ERC1450", async function () {
             const version = await token.version();
-            expect(version).to.equal("1.13.0");
+            expect(version).to.equal(EXPECTED_VERSION);
         });
 
         it("Should return version for ERC1450Upgradeable", async function () {
             const version = await tokenUpgradeable.version();
-            expect(version).to.equal("1.13.0");
+            expect(version).to.equal(EXPECTED_VERSION);
         });
 
         it("Should return version for RTAProxy", async function () {
             const version = await rtaProxy.version();
-            expect(version).to.equal("1.13.0");
+            expect(version).to.equal(EXPECTED_VERSION);
         });
 
         it("Should return version for RTAProxyUpgradeable", async function () {
             const version = await rtaProxyUpgradeable.version();
-            expect(version).to.equal("1.13.0");
+            expect(version).to.equal(EXPECTED_VERSION);
         });
     });
 

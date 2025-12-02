@@ -1,5 +1,6 @@
 const { expect } = require("chai");
 const { ethers, upgrades } = require("hardhat");
+const { version: EXPECTED_VERSION } = require("../package.json");
 
 describe("Branch Coverage Push to 90%", function () {
     let ERC1450, ERC1450Upgradeable, RTAProxy, RTAProxyUpgradeable;
@@ -262,7 +263,7 @@ describe("Branch Coverage Push to 90%", function () {
 
     describe("RTAProxy - version and edge cases", function () {
         it("Should return version", async function () {
-            expect(await rtaProxy.version()).to.equal("1.13.0");
+            expect(await rtaProxy.version()).to.equal(EXPECTED_VERSION);
         });
 
         it("Should handle operation submission and revocation", async function () {
@@ -286,7 +287,7 @@ describe("Branch Coverage Push to 90%", function () {
 
     describe("RTAProxyUpgradeable - version and edge cases", function () {
         it("Should return version", async function () {
-            expect(await rtaProxyUpgradeable.version()).to.equal("1.13.0");
+            expect(await rtaProxyUpgradeable.version()).to.equal(EXPECTED_VERSION);
         });
 
         it("Should handle getSigners correctly", async function () {
