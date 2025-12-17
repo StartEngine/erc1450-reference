@@ -46,3 +46,6 @@ build/
 # Slither and Mythril reports (can be regenerated)
 slither-report*.json
 mythril-settings.json
+
+# Audit findings (private until finalized)
+halborn/
