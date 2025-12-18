@@ -5,7 +5,7 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
     // Common regulation constants for testing
     const REG_US_A = 0x0001; // Reg A
     const issuanceDate = Math.floor(Date.now() / 1000) - 86400 * 30; // 30 days ago
-    let ERC1450, token;
+    let ERC1450, MockERC20, token, feeToken;
     let owner, issuer, rta, alice, bob, carol, dave;
     let users;
 
@@ -22,6 +22,11 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
             rta.address
         );
         await token.waitForDeployment();
+
+        // Deploy MockERC20 for fee token (6 decimals like USDC)
+        MockERC20 = await ethers.getContractFactory("MockERC20");
+        feeToken = await MockERC20.deploy("Fee Token", "FEE", 6);
+        await feeToken.waitForDeployment();
     });
 
     describe("Invariant 1: Total Supply Conservation", function () {
@@ -189,21 +194,26 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
     describe("Invariant 5: Fee Collection Integrity", function () {
         it("Collected fees should never decrease except on withdrawal", async function () {
             await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
-            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 18), [ethers.ZeroAddress]);
 
-            const initialFees = await token.collectedFees(ethers.ZeroAddress);
+            // Set fee token and fee parameters
+            await token.connect(rta).setFeeToken(feeToken.target);
+            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 6));
+
+            // Mint fee tokens to alice and approve
+            await feeToken.mint(alice.address, ethers.parseUnits("10", 6));
+            await feeToken.connect(alice).approve(token.target, ethers.parseUnits("10", 6));
+
+            const initialFees = await token.collectedFees();
 
             // Create transfer request with fee
             await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 ethers.parseUnits("100", 10),
-                ethers.ZeroAddress,
-                ethers.parseUnits("1", 10),
-                { value: ethers.parseUnits("1", 10) }
+                ethers.parseUnits("1", 6)
             );
 
-            const afterRequest = await token.collectedFees(ethers.ZeroAddress);
+            const afterRequest = await token.collectedFees();
             expect(afterRequest).to.be.gt(initialFees);
 
             // Another request increases fees
@@ -211,44 +221,45 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
                 alice.address,
                 bob.address,
                 ethers.parseUnits("100", 10),
-                ethers.ZeroAddress,
-                ethers.parseUnits("1", 10),
-                { value: ethers.parseUnits("1", 10) }
+                ethers.parseUnits("1", 6)
             );
 
-            const afterSecondRequest = await token.collectedFees(ethers.ZeroAddress);
+            const afterSecondRequest = await token.collectedFees();
             expect(afterSecondRequest).to.be.gt(afterRequest);
 
             // Withdrawal decreases fees
             await token.connect(rta).withdrawFees(
-                ethers.ZeroAddress,
-                ethers.parseUnits("1", 10),
+                ethers.parseUnits("1", 6),
                 rta.address
             );
 
-            const afterWithdrawal = await token.collectedFees(ethers.ZeroAddress);
-            expect(afterWithdrawal).to.equal(afterSecondRequest - ethers.parseUnits("1", 10));
+            const afterWithdrawal = await token.collectedFees();
+            expect(afterWithdrawal).to.equal(afterSecondRequest - ethers.parseUnits("1", 6));
         });
 
         it("Cannot withdraw more fees than collected", async function () {
             await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
-            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 18), [ethers.ZeroAddress]);
 
-            // Collect 1 ETH in fees
+            // Set fee token and fee parameters
+            await token.connect(rta).setFeeToken(feeToken.target);
+            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 6));
+
+            // Mint fee tokens to alice and approve
+            await feeToken.mint(alice.address, ethers.parseUnits("10", 6));
+            await feeToken.connect(alice).approve(token.target, ethers.parseUnits("10", 6));
+
+            // Collect 1 FEE in fees
             await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 ethers.parseUnits("100", 10),
-                ethers.ZeroAddress,
-                ethers.parseUnits("1", 10),
-                { value: ethers.parseUnits("1", 10) }
+                ethers.parseUnits("1", 6)
             );
 
-            // Try to withdraw 2 ETH
+            // Try to withdraw 2 FEE
             await expect(
                 token.connect(rta).withdrawFees(
-                    ethers.ZeroAddress,
-                    ethers.parseUnits("2", 10),
+                    ethers.parseUnits("2", 6),
                     rta.address
                 )
             ).to.be.revertedWithCustomError(token, "ERC20InsufficientBalance");
@@ -258,14 +269,16 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
     describe("Invariant 6: Transfer Request State Machine", function () {
         it("Transfer requests follow valid state transitions", async function () {
             await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
-            await token.connect(rta).setFeeParameters(0, 0, [ethers.ZeroAddress]);
+
+            // Set fee token and fee parameters
+            await token.connect(rta).setFeeToken(feeToken.target);
+            await token.connect(rta).setFeeParameters(0, 0);
 
             // Create request (Pending)
             const tx = await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 ethers.parseUnits("100", 10),
-                ethers.ZeroAddress,
                 0
             );
 
@@ -292,13 +305,15 @@ describe("ERC1450 Invariant Tests - Security Properties", function () {
 
         it("Rejected requests cannot be processed", async function () {
             await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
-            await token.connect(rta).setFeeParameters(0, 0, [ethers.ZeroAddress]);
+
+            // Set fee token and fee parameters
+            await token.connect(rta).setFeeToken(feeToken.target);
+            await token.connect(rta).setFeeParameters(0, 0);
 
             const tx = await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 ethers.parseUnits("100", 10),
-                ethers.ZeroAddress,
                 0
             );
 

@@ -37,14 +37,15 @@ All required functions from `IERC1450` are implemented:
 
 | Function | Implemented | Notes |
 |----------|------------|-------|
-| `requestTransferWithFee` | ✅ | Holder/broker initiated requests |
+| `requestTransferWithFee` | ✅ | Holder/broker initiated requests (4 params) |
 | `processTransferRequest` | ✅ | RTA processing |
 | `rejectTransferRequest` | ✅ | RTA rejection with reason codes |
 | `updateRequestStatus` | ✅ | Status lifecycle management |
-| `getTransferFee` | ✅ | Dynamic fee calculation |
-| `getAcceptedFeeTokens` | ✅ | Returns accepted payment tokens |
-| `setFeeParameters` | ✅ | RTA-controlled fee config |
-| `withdrawFees` | ✅ | Fee collection |
+| `getTransferFee` | ✅ | Dynamic fee calculation (3 params) |
+| `getFeeToken` | ✅ | Returns configured ERC-20 fee token |
+| `setFeeToken` | ✅ | RTA-controlled fee token config |
+| `setFeeParameters` | ✅ | RTA-controlled fee config (2 params: type, value) |
+| `withdrawFees` | ✅ | Fee collection (2 params: amount, recipient) |
 
 **Request Status Enum**: Matches spec exactly
 ```solidity
@@ -75,15 +76,15 @@ enum RequestStatus {
 
 **Note**: Implementation uses `executeCourtOrder` instead of spec's `controllerTransfer` name. Functionality is identical - forced transfer bypassing normal restrictions with document hash tracking.
 
-### 1.5 Batch Operations ❌ NOT IMPLEMENTED
+### 1.5 Batch Operations ✅ IMPLEMENTED
 
-The spec includes optional batch operations that are **not implemented** in this reference:
+| Function | Implemented | Notes |
+|----------|------------|-------|
+| `batchMint` | ✅ | Mint to multiple recipients in one transaction |
+| `batchTransferFrom` | ✅ | Transfer to multiple recipients in one transaction |
+| `batchBurnFrom` | ✅ | Burn from multiple holders in one transaction |
 
-- `batchMint`
-- `batchTransferFrom`
-- `batchBurnFrom`
-
-**Rationale**: These are convenience functions. Core functionality can achieve the same results through individual calls. May be added in future versions.
+**Benefits**: Gas efficiency for bulk operations, common in corporate actions.
 
 ### 1.6 Optional Features Not Implemented
 
@@ -313,7 +314,7 @@ This maintains the security model where RTA has exclusive control.
 
 ### 8.1 Coverage Metrics
 
-Current test coverage after upgradability additions:
+Current test coverage after single fee token update:
 
 | Metric | Standard Contracts | Upgradeable Contracts | Overall |
 |--------|-------------------|---------------------|---------|
@@ -324,7 +325,7 @@ Current test coverage after upgradability additions:
 
 ### 8.2 Test Suite Breakdown
 
-**Total Tests**: 238 passing, 1 pending
+**Total Tests**: 643 passing
 
 Test categories:
 - ✅ Core token functionality (ERC1450.test.js)
@@ -333,11 +334,12 @@ Test categories:
 - ✅ Critical error paths (CriticalPaths.test.js)
 - ✅ Edge cases (EdgeCases.test.js)
 - ✅ Security invariants (Invariants.test.js)
+- ✅ Batch operations (BatchMint.test.js, etc.)
+- ✅ Single fee token (fee token configuration and collection)
 
 ### 8.3 Untested Optional Features
 
 Not tested because not implemented:
-- ❌ Batch operations
 - ❌ EIP-3668 CCIP-Read
 - ❌ ERC-1643 documents
 - ❌ Wallet recovery
@@ -369,10 +371,27 @@ Not tested because not implemented:
    - Impact: Slightly different API, but same capabilities
    - **Recommendation**: Consider adding `approved` parameter for full spec compliance
 
-### 9.2 Missing Optional Features
+### 9.2 Single Fee Token Design
+
+**Design Decision**: This implementation uses a **single ERC-20 fee token** instead of multiple accepted tokens.
+
+**Rationale** (per Halborn FIND-003):
+- Eliminates ambiguity about which token to use for fees
+- Simplifies fee calculation and validation
+- Recommended token: USDC on Polygon (`0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359`)
+- Off-chain fee validation by RTA supports private discount arrangements
+
+**API Changes**:
+- `setFeeToken(address)` - Configure single fee token
+- `getFeeToken()` - Returns configured fee token
+- `setFeeParameters(uint8, uint256)` - 2 params instead of 3
+- `requestTransferWithFee(from, to, amount, feeAmount)` - 4 params instead of 5
+- `withdrawFees(amount, recipient)` - 2 params instead of 3
+- `getTransferFee(from, to, amount)` - 3 params instead of 4
+
+### 9.3 Missing Optional Features
 
 These are explicitly optional in the spec:
-- Batch operations (convenience functions)
 - EIP-3668 CCIP-Read (advanced wallet integration)
 - ERC-1643 documents (can be separate contract)
 - Wallet recovery (complex feature, can use court orders)
@@ -390,7 +409,7 @@ These are explicitly optional in the spec:
 4. **Events**: Comprehensive event emission
 5. **Multi-Sig**: Robust RTAProxy implementation
 6. **Upgradeability**: Safe UUPS pattern with proper authorization
-7. **Test Coverage**: 73.44% branch coverage, 238 passing tests
+7. **Test Coverage**: 73.44% branch coverage, 643 passing tests
 8. **Security**: Reentrancy protection, proper validation
 
 ### 10.2 Areas for Improvement
@@ -399,7 +418,6 @@ These are explicitly optional in the spec:
 2. **Interface ID**: Consider returning `false` for ERC-20 interface
 3. **processTransferRequest**: Add `approved` parameter for full spec compliance
 4. **Documentation**: Add inline code documentation
-5. **Optional Features**: Consider implementing batch operations
 
 ### 10.3 Security Considerations
 
@@ -462,7 +480,8 @@ This reference implementation successfully implements the core requirements of E
 
 ⚠️ ERC-20 interface ID returns true (should return false per spec)
 ⚠️ `processTransferRequest` signature differs slightly
-❌ Optional features not implemented (batch ops, CCIP-Read, ERC-1643, recovery)
+⚠️ Single fee token design (simplification per Halborn FIND-003)
+❌ Optional features not implemented (CCIP-Read, ERC-1643, recovery)
 
 ### Audit Readiness:
 
@@ -475,7 +494,8 @@ This reference implementation successfully implements the core requirements of E
 
 ---
 
-**Document Version**: 1.0
-**Last Updated**: 2025-11-10
+**Document Version**: 1.1
+**Last Updated**: 2025-12-18
 **Prepared By**: Claude Code
 **Status**: Ready for Review
+**Changes**: Updated for single fee token design (Halborn FIND-003)

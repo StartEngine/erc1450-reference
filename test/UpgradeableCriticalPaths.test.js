@@ -5,7 +5,7 @@ describe("Upgradeable Contracts Critical Paths - 100% Coverage", function () {
     // Common regulation constants for testing
     const REG_US_A = 0x0001; // Reg A
     const issuanceDate = Math.floor(Date.now() / 1000) - 86400 * 30; // 30 days ago
-    let ERC1450Upgradeable, token, rtaProxy;
+    let ERC1450Upgradeable, token, rtaProxy, feeToken;
     let owner, issuer, rta, alice, bob, signer2, signer3, nonSigner;
 
     beforeEach(async function () {
@@ -28,6 +28,11 @@ describe("Upgradeable Contracts Critical Paths - 100% Coverage", function () {
             { kind: "uups" }
         );
         await token.waitForDeployment();
+
+        // Deploy MockERC20 for fee token with 6 decimals (like USDC)
+        const MockERC20 = await ethers.getContractFactory("MockERC20");
+        feeToken = await MockERC20.deploy("USD Coin", "USDC", 6);
+        await feeToken.waitForDeployment();
     });
 
     describe("ERC1450Upgradeable - Internal _transfer Error Paths", function () {
@@ -112,13 +117,15 @@ describe("Upgradeable Contracts Critical Paths - 100% Coverage", function () {
 
             it("Should revert when processing transfer request with insufficient balance", async function () {
                 await token.connect(rta).mint(alice.address, ethers.parseUnits("50", 10), REG_US_A, issuanceDate);
-                await token.connect(rta).setFeeParameters(0, 0, [ethers.ZeroAddress]);
+
+                // Set fee token (required) with zero fee
+                await token.connect(rta).setFeeToken(feeToken.target);
+                await token.connect(rta).setFeeParameters(0, 0);
 
                 const tx = await token.connect(alice).requestTransferWithFee(
                     alice.address,
                     bob.address,
                     ethers.parseUnits("100", 10),
-                    ethers.ZeroAddress,
                     0
                 );
 
@@ -245,17 +252,22 @@ describe("Upgradeable Contracts Critical Paths - 100% Coverage", function () {
 
         it("Should handle rejection with and without refund", async function () {
             await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
-            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 18), [ethers.ZeroAddress]);
+
+            // Set fee token to ERC20 fee token
+            await token.connect(rta).setFeeToken(feeToken.target);
+            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("10", 6)); // 10 USDC
+
+            // Mint fee tokens to alice and approve
+            const feeAmount = ethers.parseUnits("10", 6);
+            await feeToken.mint(alice.address, feeAmount);
+            await feeToken.connect(alice).approve(token.target, feeAmount);
 
             // Request with fee
-            const feeAmount = ethers.parseUnits("1", 10);
             const tx = await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 ethers.parseUnits("100", 10),
-                ethers.ZeroAddress,
-                feeAmount,
-                { value: feeAmount }
+                feeAmount
             );
 
             const receipt = await tx.wait();
@@ -273,7 +285,7 @@ describe("Upgradeable Contracts Critical Paths - 100% Coverage", function () {
             await token.connect(rta).rejectTransferRequest(requestId, 3, false);
 
             // Fee should still be collected
-            expect(await token.collectedFees(ethers.ZeroAddress)).to.equal(feeAmount);
+            expect(await token.collectedFeesTotal()).to.equal(feeAmount);
         });
     });
 });

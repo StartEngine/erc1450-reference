@@ -6,8 +6,8 @@ describe("RTAProxy Multi-Sig", function () {
     const REG_US_A = 0x0001; // Reg A
     const issuanceDate = Math.floor(Date.now() / 1000) - 86400 * 30; // 30 days ago
 
-    let RTAProxy, ERC1450;
-    let rtaProxy, token;
+    let RTAProxy, ERC1450, MockERC20;
+    let rtaProxy, token, feeToken;
     let owner, signer1, signer2, signer3, nonSigner, newSigner;
     let signers;
 
@@ -17,6 +17,7 @@ describe("RTAProxy Multi-Sig", function () {
         // Deploy contracts
         RTAProxy = await ethers.getContractFactory("RTAProxy");
         ERC1450 = await ethers.getContractFactory("ERC1450");
+        MockERC20 = await ethers.getContractFactory("MockERC20");
 
         // Deploy RTAProxy with 2 of 3 multi-sig
         rtaProxy = await RTAProxy.deploy(
@@ -34,6 +35,10 @@ describe("RTAProxy Multi-Sig", function () {
             rtaProxy.target
         );
         await token.waitForDeployment();
+
+        // Deploy fee token (USDC-like with 6 decimals)
+        feeToken = await MockERC20.deploy("USD Coin", "USDC", 6);
+        await feeToken.waitForDeployment();
     });
 
     describe("Deployment", function () {
@@ -322,20 +327,38 @@ describe("RTAProxy Multi-Sig", function () {
         });
 
         it("Should process transfer requests", async function () {
-            // First create a transfer request directly to the token
+            // Set up fee token through multi-sig
+            const setFeeTokenData = token.interface.encodeFunctionData("setFeeToken", [
+                feeToken.target
+            ]);
+            await rtaProxy.connect(signer1).submitOperation(token.target, setFeeTokenData, 0);
+            await rtaProxy.connect(signer2).confirmOperation(1);
+
+            // Set fee parameters (flat fee of 1 USDC) through multi-sig
+            const setFeeParamsData = token.interface.encodeFunctionData("setFeeParameters", [
+                0, // flat fee type
+                ethers.parseUnits("1", 6) // 1 USDC
+            ]);
+            await rtaProxy.connect(signer1).submitOperation(token.target, setFeeParamsData, 0);
+            await rtaProxy.connect(signer2).confirmOperation(2);
+
+            // Mint fee tokens to signer1 and approve
+            await feeToken.mint(signer1.address, ethers.parseUnits("10", 6));
+            await feeToken.connect(signer1).approve(token.target, ethers.parseUnits("10", 6));
+
+            // Create a transfer request directly to the token
             await token.connect(signer1).requestTransferWithFee(
                 signer1.address,
                 signer2.address,
                 ethers.parseUnits("100", 10),
-                ethers.ZeroAddress,
-                0
+                ethers.parseUnits("1", 6) // 1 USDC fee
             );
 
             // Process through RTAProxy
             const processData = token.interface.encodeFunctionData("processTransferRequest", [1, true]);
 
             await rtaProxy.connect(signer1).submitOperation(token.target, processData, 0);
-            await rtaProxy.connect(signer2).confirmOperation(1);
+            await rtaProxy.connect(signer2).confirmOperation(3);
 
             expect(await token.balanceOf(signer2.address)).to.equal(ethers.parseUnits("100", 10));
         });

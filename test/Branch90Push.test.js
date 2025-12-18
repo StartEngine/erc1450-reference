@@ -3,8 +3,8 @@ const { ethers, upgrades } = require("hardhat");
 const { version: EXPECTED_VERSION } = require("../package.json");
 
 describe("Branch Coverage Push to 90%", function () {
-    let ERC1450, ERC1450Upgradeable, RTAProxy, RTAProxyUpgradeable;
-    let token, tokenUpgradeable, rtaProxy, rtaProxyUpgradeable;
+    let ERC1450, ERC1450Upgradeable, RTAProxy, RTAProxyUpgradeable, MockERC20;
+    let token, tokenUpgradeable, rtaProxy, rtaProxyUpgradeable, feeToken;
     let owner, rta1, rta2, rta3, alice, bob, carol;
     let tokenAddress, tokenUpgradeableAddress;
 
@@ -26,6 +26,11 @@ describe("Branch Coverage Push to 90%", function () {
 
     beforeEach(async function () {
         [owner, rta1, rta2, rta3, alice, bob, carol] = await ethers.getSigners();
+
+        // Deploy MockERC20 for fee token
+        MockERC20 = await ethers.getContractFactory("MockERC20");
+        feeToken = await MockERC20.deploy("Fee Token", "FEE", 6);
+        await feeToken.waitForDeployment();
 
         // Deploy RTAProxy
         RTAProxy = await ethers.getContractFactory("RTAProxy");
@@ -116,38 +121,47 @@ describe("Branch Coverage Push to 90%", function () {
         });
     });
 
-    describe("ERC1450 - setFeeParameters accepting new tokens (line 219)", function () {
-        let MockERC20, feeToken1, feeToken2;
+    describe("ERC1450 - setFeeParameters with new single token pattern (line 219)", function () {
+        let feeToken1;
 
         beforeEach(async function () {
-            MockERC20 = await ethers.getContractFactory("MockERC20");
-            feeToken1 = await MockERC20.deploy("Fee Token 1", "FEE1", 18);
-            feeToken2 = await MockERC20.deploy("Fee Token 2", "FEE2", 18);
+            feeToken1 = await MockERC20.deploy("Fee Token 1", "FEE1", 6);
         });
 
-        it("Should accept new fee token when not previously accepted", async function () {
+        it("Should set fee token and parameters separately", async function () {
+            // First set the fee token
+            const setTokenData = token.interface.encodeFunctionData("setFeeToken", [
+                await feeToken1.getAddress()
+            ]);
+            await submitAndConfirmOperation(rtaProxy, tokenAddress, setTokenData, [rta1, rta2]);
+
+            // Then set fee parameters (only 2 args now)
             const feeData = token.interface.encodeFunctionData("setFeeParameters", [
                 1, // flat fee
-                ethers.parseUnits("10", 10),
-                [await feeToken1.getAddress()]
+                ethers.parseUnits("10", 10)
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, feeData, [rta1, rta2]);
 
-            const acceptedTokens = await token.getAcceptedFeeTokens();
-            expect(acceptedTokens).to.include(await feeToken1.getAddress());
+            const currentFeeToken = await token.getFeeToken();
+            expect(currentFeeToken).to.equal(await feeToken1.getAddress());
         });
 
-        it("Should add multiple fee tokens in one call", async function () {
+        it("Should update fee token when setting new one", async function () {
+            // Set first fee token
+            const setTokenData1 = token.interface.encodeFunctionData("setFeeToken", [
+                await feeToken1.getAddress()
+            ]);
+            await submitAndConfirmOperation(rtaProxy, tokenAddress, setTokenData1, [rta1, rta2]);
+
+            // Set fee parameters
             const feeData = token.interface.encodeFunctionData("setFeeParameters", [
                 1,
-                ethers.parseUnits("10", 10),
-                [await feeToken1.getAddress(), await feeToken2.getAddress()]
+                ethers.parseUnits("10", 10)
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, feeData, [rta1, rta2]);
 
-            const acceptedTokens = await token.getAcceptedFeeTokens();
-            expect(acceptedTokens).to.include(await feeToken1.getAddress());
-            expect(acceptedTokens).to.include(await feeToken2.getAddress());
+            const currentFeeToken = await token.getFeeToken();
+            expect(currentFeeToken).to.equal(await feeToken1.getAddress());
         });
     });
 
@@ -173,11 +187,10 @@ describe("Branch Coverage Push to 90%", function () {
     });
 
     describe("ERC1450 - withdrawFees edge cases (lines 725, 737)", function () {
-        let MockERC20, feeToken;
+        let testFeeToken;
 
         beforeEach(async function () {
-            MockERC20 = await ethers.getContractFactory("MockERC20");
-            feeToken = await MockERC20.deploy("Fee Token", "FEE", 18);
+            testFeeToken = await MockERC20.deploy("Test Fee Token", "TFEE", 6);
 
             // Mint tokens to alice
             const mintData = token.interface.encodeFunctionData("mint", [
@@ -185,41 +198,44 @@ describe("Branch Coverage Push to 90%", function () {
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, mintData, [rta1, rta2]);
 
-            // Set up flat fee with feeToken
+            // Set fee token
+            const setTokenData = token.interface.encodeFunctionData("setFeeToken", [
+                await testFeeToken.getAddress()
+            ]);
+            await submitAndConfirmOperation(rtaProxy, tokenAddress, setTokenData, [rta1, rta2]);
+
+            // Set up flat fee (only 2 args now)
             const feeData = token.interface.encodeFunctionData("setFeeParameters", [
-                1, ethers.parseUnits("10", 18), [await feeToken.getAddress()]
+                1, ethers.parseUnits("10", 6)
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, feeData, [rta1, rta2]);
 
-            // Give alice some fee tokens
-            await feeToken.mint(alice.address, ethers.parseUnits("100", 18));
-            await feeToken.connect(alice).approve(await token.getAddress(), ethers.parseUnits("100", 18));
+            // Give alice some fee tokens and approve
+            await testFeeToken.mint(alice.address, ethers.parseUnits("100", 6));
+            await testFeeToken.connect(alice).approve(await token.getAddress(), ethers.parseUnits("100", 6));
         });
 
         it("Should handle ERC20 fee token collection and withdrawal", async function () {
-            // Request transfer with ERC20 fee token
+            // Request transfer with ERC20 fee token (4 args now, no value needed)
             await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 ethers.parseUnits("100", 10),
-                await feeToken.getAddress(),
-                ethers.parseUnits("10", 18),
-                { value: 0 }
+                ethers.parseUnits("10", 6)
             );
 
             // Check collected fees
-            const collected = await token.collectedFees(await feeToken.getAddress());
-            expect(collected).to.equal(ethers.parseUnits("10", 18));
+            const collected = await token.collectedFees();
+            expect(collected).to.equal(ethers.parseUnits("10", 6));
 
-            // Withdraw fees (token, amount, recipient)
+            // Withdraw fees (only 2 args: amount, recipient)
             const withdrawData = token.interface.encodeFunctionData("withdrawFees", [
-                await feeToken.getAddress(),
-                ethers.parseUnits("10", 18),
+                ethers.parseUnits("10", 6),
                 bob.address
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, withdrawData, [rta1, rta2]);
 
-            expect(await feeToken.balanceOf(bob.address)).to.equal(ethers.parseUnits("10", 18));
+            expect(await testFeeToken.balanceOf(bob.address)).to.equal(ethers.parseUnits("10", 6));
         });
     });
 
@@ -318,9 +334,15 @@ describe("Branch Coverage Push to 90%", function () {
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, mintData, [rta1, rta2]);
 
-            // Set up fee parameters
+            // Set fee token (use the feeToken from beforeEach)
+            const setTokenData = token.interface.encodeFunctionData("setFeeToken", [
+                await feeToken.getAddress()
+            ]);
+            await submitAndConfirmOperation(rtaProxy, tokenAddress, setTokenData, [rta1, rta2]);
+
+            // Set up fee parameters with zero fee (only 2 args)
             const feeData = token.interface.encodeFunctionData("setFeeParameters", [
-                0, 0, [ethers.ZeroAddress]
+                0, 0
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, feeData, [rta1, rta2]);
 
@@ -328,14 +350,12 @@ describe("Branch Coverage Push to 90%", function () {
             const brokerData = token.interface.encodeFunctionData("setBrokerStatus", [carol.address, true]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, brokerData, [rta1, rta2]);
 
-            // Broker requests transfer on behalf of alice
+            // Broker requests transfer on behalf of alice (4 args now, zero fee)
             await token.connect(carol).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 ethers.parseUnits("100", 10),
-                ethers.ZeroAddress,
-                0,
-                { value: 0 }
+                0
             );
 
             // Just verify it succeeded by checking if the request exists
@@ -349,9 +369,15 @@ describe("Branch Coverage Push to 90%", function () {
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, mintData, [rta1, rta2]);
 
-            // Set up fee parameters
+            // Set fee token (use the feeToken from beforeEach)
+            const setTokenData = tokenUpgradeable.interface.encodeFunctionData("setFeeToken", [
+                await feeToken.getAddress()
+            ]);
+            await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, setTokenData, [rta1, rta2]);
+
+            // Set up fee parameters with zero fee (only 2 args)
             const feeData = tokenUpgradeable.interface.encodeFunctionData("setFeeParameters", [
-                0, 0, [ethers.ZeroAddress]
+                0, 0
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, feeData, [rta1, rta2]);
 
@@ -359,14 +385,12 @@ describe("Branch Coverage Push to 90%", function () {
             const brokerData = tokenUpgradeable.interface.encodeFunctionData("setBrokerStatus", [carol.address, true]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, brokerData, [rta1, rta2]);
 
-            // Broker requests transfer
+            // Broker requests transfer (4 args now, zero fee)
             await tokenUpgradeable.connect(carol).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 ethers.parseUnits("100", 10),
-                ethers.ZeroAddress,
-                0,
-                { value: 0 }
+                0
             );
 
             expect(await tokenUpgradeable.isRegisteredBroker(carol.address)).to.be.true;

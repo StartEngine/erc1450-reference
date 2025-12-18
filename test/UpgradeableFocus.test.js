@@ -10,7 +10,7 @@ describe("Upgradeable Contract Focus - Final 1.5%", function () {
     const issuanceDate2 = Math.floor(Date.now() / 1000) - 86400 * 60;
     const issuanceDate3 = Math.floor(Date.now() / 1000) - 86400 * 90;
 
-    let tokenUpgradeable, rtaProxyUpgradeable;
+    let tokenUpgradeable, rtaProxyUpgradeable, feeToken;
     let owner, rta1, rta2, alice, bob, carol, dave, eve;
     let tokenUpgradeableAddress;
 
@@ -41,6 +41,11 @@ describe("Upgradeable Contract Focus - Final 1.5%", function () {
         );
         await tokenUpgradeable.waitForDeployment();
         tokenUpgradeableAddress = await tokenUpgradeable.getAddress();
+
+        // Deploy MockERC20 for fee token with 6 decimals (like USDC)
+        const MockERC20 = await ethers.getContractFactory("MockERC20");
+        feeToken = await MockERC20.deploy("Fee Token", "FEE", 6);
+        await feeToken.waitForDeployment();
     });
 
     describe("ERC1450Upgradeable - Maximum Batch Complexity", function () {
@@ -148,17 +153,27 @@ describe("Upgradeable Contract Focus - Final 1.5%", function () {
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, mintData, [rta1, rta2]);
 
+            // Set fee token first
+            const setFeeTokenData = tokenUpgradeable.interface.encodeFunctionData("setFeeToken", [
+                await feeToken.getAddress()
+            ]);
+            await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, setFeeTokenData, [rta1, rta2]);
+
+            // Then set fee parameters
             const setFeeData = tokenUpgradeable.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseUnits("0.01", 10), [ethers.ZeroAddress]
+                0, ethers.parseUnits("0.01", 6)
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, setFeeData, [rta1, rta2]);
+
+            // Mint fee tokens to alice and approve
+            await feeToken.mint(alice.address, ethers.parseUnits("10", 6));
+            await feeToken.connect(alice).approve(tokenUpgradeableAddress, ethers.parseUnits("10", 6));
 
             // Test address(0) as from
             await expect(
                 tokenUpgradeable.connect(alice).requestTransferWithFee(
                     ethers.ZeroAddress, bob.address, ethers.parseUnits("100", 10),
-                    ethers.ZeroAddress, ethers.parseUnits("0.01", 10),
-                    { value: ethers.parseUnits("0.01", 10) }
+                    ethers.parseUnits("0.01", 6)
                 )
             ).to.be.reverted;
 
@@ -166,8 +181,7 @@ describe("Upgradeable Contract Focus - Final 1.5%", function () {
             await expect(
                 tokenUpgradeable.connect(alice).requestTransferWithFee(
                     alice.address, ethers.ZeroAddress, ethers.parseUnits("100", 10),
-                    ethers.ZeroAddress, ethers.parseUnits("0.01", 10),
-                    { value: ethers.parseUnits("0.01", 10) }
+                    ethers.parseUnits("0.01", 6)
                 )
             ).to.be.reverted;
         });
@@ -245,17 +259,27 @@ describe("Upgradeable Contract Focus - Final 1.5%", function () {
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, mintData, [rta1, rta2]);
 
+            // Set fee token first
+            const setFeeTokenData = tokenUpgradeable.interface.encodeFunctionData("setFeeToken", [
+                await feeToken.getAddress()
+            ]);
+            await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, setFeeTokenData, [rta1, rta2]);
+
+            // Then set fee parameters
             const setFeeData = tokenUpgradeable.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseUnits("0.01", 10), [ethers.ZeroAddress]
+                0, ethers.parseUnits("0.01", 6)
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, setFeeData, [rta1, rta2]);
+
+            // Mint fee tokens to alice and approve (enough for 15 requests)
+            await feeToken.mint(alice.address, ethers.parseUnits("1", 6));
+            await feeToken.connect(alice).approve(tokenUpgradeableAddress, ethers.parseUnits("1", 6));
 
             // Create 15 requests
             for (let i = 0; i < 15; i++) {
                 await tokenUpgradeable.connect(alice).requestTransferWithFee(
                     alice.address, bob.address, ethers.parseUnits("100", 10),
-                    ethers.ZeroAddress, ethers.parseUnits("0.01", 10),
-                    { value: ethers.parseUnits("0.01", 10) }
+                    ethers.parseUnits("0.01", 6)
                 );
             }
 

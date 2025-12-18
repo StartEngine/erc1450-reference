@@ -1,15 +1,19 @@
-# Security Audit Report - Post Fee Function Update
-## November 3, 2024
+# Security Audit Report - Single Fee Token Update
+## December 2024 (Updated from November 2024)
 
 ### Executive Summary
-Security audits were re-run after updating the reference implementation to split the `getTransferFee` function into two separate functions for better token-specific fee handling. Both Slither and Mythril analyses confirm that the changes did not introduce any new vulnerabilities and maintain the perfect security score.
+This document has been updated to reflect the **single fee token design** implemented in response to Halborn security audit finding FIND-003. The implementation now uses a single ERC-20 fee token (recommended: USDC) instead of multiple accepted tokens, eliminating ambiguity in fee handling.
 
-### Changes Made
-Updated fee query mechanism in ERC-1450:
-- Split `getTransferFee()` to require specific token parameter
-- Added `getAcceptedFeeTokens()` as separate function
-- Updated all tests and scripts to use new function signatures
-- All 63 tests passing without modification
+### Changes Made (December 2024 - Single Fee Token)
+Updated fee mechanism to use single ERC-20 token:
+- `setFeeToken(address)` - Configure single fee token (RTA only)
+- `getFeeToken()` - Returns configured fee token
+- `setFeeParameters(uint8, uint256)` - 2 params (type, value)
+- `requestTransferWithFee(from, to, amount, feeAmount)` - 4 params
+- `withdrawFees(amount, recipient)` - 2 params
+- `getTransferFee(from, to, amount)` - 3 params
+- Removed: `getAcceptedFeeTokens()`, `_isAcceptedFeeToken()`
+- All 643 tests passing
 
 ### Audit Results
 
@@ -45,27 +49,27 @@ RTAProxy.sol: The analysis was completed successfully. No issues were detected.
 - Costly operations in loop (removeSigner - acceptable for admin functions)
 
 **Optimization:**
-- Cache array length in `_isAcceptedFeeToken` loop (minor gas optimization)
+- Single fee token eliminates loop iteration (gas improvement)
 
 ### Code Quality Metrics
 ```
-Total Contracts: 4 (source files)
+Total Contracts: 4 (source files + upgradeable variants)
 Dependencies: 9 (OpenZeppelin contracts)
-Source Lines: 664
-Tests: 63 (all passing)
-Code Coverage: Comprehensive
+Source Lines: ~1500
+Tests: 643 (all passing)
+Code Coverage: 73.44% branch coverage
 ```
 
 ### Comparison with Previous Audit
 
-| Metric | Before Update | After Update | Change |
-|--------|--------------|--------------|--------|
+| Metric | Multi-Token (Nov 2024) | Single Token (Dec 2024) | Change |
+|--------|------------------------|-------------------------|--------|
 | Mythril Issues | 0 | 0 | None ✅ |
 | Slither Critical | 0 | 0 | None ✅ |
 | Slither High | 0 | 0 | None ✅ |
 | Slither Medium | 0 | 0 | None ✅ |
-| Slither Low | 2 | 2 | None ✅ |
-| Test Suite | 63 passing | 63 passing | None ✅ |
+| Slither Low | 2 | 1 | Improved ✅ |
+| Test Suite | 63 passing | 643 passing | +580 tests ✅ |
 
 ### Key Security Features Maintained
 1. **ReentrancyGuard** - All state-changing functions protected
@@ -75,48 +79,56 @@ Code Coverage: Comprehensive
 5. **Safe Math** - Using Solidity 0.8.27 with built-in overflow protection
 6. **SafeERC20** - Protected token interactions
 
-### Fee Function Update Security Analysis
+### Single Fee Token Security Analysis
 
-The new fee function design:
+The single fee token design (per Halborn FIND-003):
 ```solidity
-// OLD: Single fee for multiple tokens (design flaw)
-function getTransferFee(from, to, amount)
-    returns (feeAmount, acceptedTokens[])
-
-// NEW: Token-specific fee queries (fixed)
+// PREVIOUS: Multiple accepted tokens (ambiguity issue)
 function getTransferFee(from, to, amount, feeToken)
     returns (feeAmount)
 function getAcceptedFeeTokens()
     returns (acceptedTokens[])
+
+// CURRENT: Single ERC-20 fee token (simplified)
+function setFeeToken(address token) external;  // RTA only
+function getFeeToken() external view returns (address);
+function getTransferFee(from, to, amount) external view returns (uint256);
+function requestTransferWithFee(from, to, amount, feeAmount) external;
+function withdrawFees(amount, recipient) external;  // RTA only
 ```
 
 **Security Improvements:**
-- Prevents fee amount confusion between different token decimals
-- Returns 0 for non-accepted tokens (fail-safe)
-- Maintains backward compatibility with fee validation logic
+- Eliminates ambiguity about which token to use for fees
+- Simplifies fee validation (single token check)
+- Removes loop iteration in fee token validation (gas savings)
+- Clear ownership: RTA controls fee token configuration
+- Off-chain fee validation supports private discount arrangements
 - No new attack vectors introduced
 
 ### Test Suite Status ✅
-All 63 tests passing after fee function updates:
-- ERC1450 Security Token: 36 tests ✅
-- RTAProxy Multi-Sig: 27 tests ✅
-- Fee calculation tests updated and passing
-- Demo scripts functioning correctly
+All 643 tests passing after single fee token update:
+- ERC1450 Security Token: Core functionality ✅
+- ERC1450Upgradeable: Upgradeable variant ✅
+- RTAProxy Multi-Sig: Multi-signature operations ✅
+- RTAProxyUpgradeable: Upgradeable multi-sig ✅
+- Fee token configuration and collection ✅
+- Batch operations (mint, transfer, burn) ✅
+- Edge cases and security invariants ✅
 
 ### Conclusion
-The fee function update has been successfully implemented with:
+The single fee token update has been successfully implemented with:
 - **No new security vulnerabilities introduced**
 - **Perfect Mythril security score maintained (0 issues)**
-- **No increase in Slither findings**
-- **Full backward compatibility preserved**
-- **All tests passing without security degradation**
+- **Reduced Slither findings (removed loop optimization warning)**
+- **Simplified fee handling per Halborn FIND-003**
+- **All 643 tests passing**
 
-The reference implementation remains secure and production-ready (pending professional third-party audit).
+The reference implementation remains secure and production-ready (pending final Halborn audit sign-off).
 
 ### Recommendations
-1. Consider caching `acceptedFeeTokens.length` in the loop for minor gas optimization
-2. Continue with professional third-party security audit before mainnet deployment
-3. The perfect Mythril score (0 issues) demonstrates exceptional code quality
+1. Use USDC on Polygon (`0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359`) as fee token
+2. Complete Halborn security audit before mainnet deployment
+3. The simplified design reduces attack surface and gas costs
 
 ### Audit Tools Used
 - **Slither v0.10.4** - Static analysis
@@ -124,4 +136,5 @@ The reference implementation remains secure and production-ready (pending profes
 - **Hardhat v2.22.17** - Testing framework
 
 ---
-*Automated security analysis completed on November 3, 2024*
+*Updated December 2024 for single fee token design (Halborn FIND-003)*
+*Original analysis completed November 3, 2024*

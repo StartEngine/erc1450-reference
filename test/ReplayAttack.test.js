@@ -5,7 +5,7 @@ describe("Transfer Request Replay Attack Test", function () {
     // Common regulation constants for testing
     const REG_US_A = 0x0001; // Reg A
     const issuanceDate = Math.floor(Date.now() / 1000) - 86400 * 30; // 30 days ago
-    let ERC1450, token, owner, rta, alice, bob;
+    let ERC1450, token, owner, rta, alice, bob, feeToken, MockERC20;
 
     beforeEach(async function () {
         [owner, rta, alice, bob] = await ethers.getSigners();
@@ -14,17 +14,24 @@ describe("Transfer Request Replay Attack Test", function () {
         token = await ERC1450.deploy("Test", "TST", 10, owner.address, rta.address);
         await token.waitForDeployment();
 
+        // Deploy MockERC20 for fee token
+        MockERC20 = await ethers.getContractFactory("MockERC20");
+        feeToken = await MockERC20.deploy("USD Coin", "USDC", 6);
+        await feeToken.waitForDeployment();
+
         await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
-        await token.connect(rta).setFeeParameters(0, 0, [ethers.ZeroAddress]);
+
+        // Set fee token to MockERC20 and zero fees
+        await token.connect(rta).setFeeToken(feeToken.target);
+        await token.connect(rta).setFeeParameters(0, 0);
     });
 
     it("Should prevent re-processing of executed transfer requests", async function () {
-        // Create transfer request
+        // Create transfer request with no fee
         const tx = await token.connect(alice).requestTransferWithFee(
             alice.address,
             bob.address,
             ethers.parseUnits("100", 10),
-            ethers.ZeroAddress,
             0
         );
 

@@ -9,7 +9,7 @@ describe("Remaining Coverage - Final Push to 90%+", function () {
     let ERC1450, token, RTAProxy, rtaProxy;
     let ERC1450Upgradeable, tokenUpgradeable, RTAProxyUpgradeable, rtaProxyUpgradeable;
     let owner, issuer, rta, alice, bob, signer2, signer3;
-    let mockERC20;
+    let mockERC20, feeToken;
 
     beforeEach(async function () {
         [owner, issuer, rta, alice, bob, signer2, signer3] = await ethers.getSigners();
@@ -18,6 +18,10 @@ describe("Remaining Coverage - Final Push to 90%+", function () {
         const MockERC20 = await ethers.getContractFactory("MockERC20");
         mockERC20 = await MockERC20.deploy("Mock Token", "MOCK", 6);
         await mockERC20.waitForDeployment();
+
+        // Deploy fee token (USDC-like with 6 decimals)
+        feeToken = await MockERC20.deploy("Fee Token", "FEE", 6);
+        await feeToken.waitForDeployment();
 
         // Deploy standard contracts
         RTAProxy = await ethers.getContractFactory("RTAProxy");
@@ -134,12 +138,17 @@ describe("Remaining Coverage - Final Push to 90%+", function () {
             // Mint tokens to alice
             await mintViaMultiSig(alice.address, 1000);
 
+            // Set fee token via multisig (use zero address for native ETH fees)
+            const setFeeTokenData = tokenUpgradeable.interface.encodeFunctionData("setFeeToken", [
+                feeToken.target
+            ]);
+            await executeViaMultiSig(setFeeTokenData);
+
             // Create a transfer request
             await tokenUpgradeable.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 500,
-                ethers.ZeroAddress,
                 0
             );
             const requestId = 1n;
@@ -185,12 +194,17 @@ describe("Remaining Coverage - Final Push to 90%+", function () {
             // Mint tokens to alice
             await mintViaMultiSig(alice.address, 1000);
 
+            // Set fee token via multisig (use zero address for native ETH fees)
+            const setFeeTokenData = tokenUpgradeable.interface.encodeFunctionData("setFeeToken", [
+                feeToken.target
+            ]);
+            await executeViaMultiSig(setFeeTokenData);
+
             // Create a transfer request
             await tokenUpgradeable.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 500,
-                ethers.ZeroAddress,
                 0
             );
             const requestId = 1n;
@@ -276,12 +290,17 @@ describe("Remaining Coverage - Final Push to 90%+", function () {
             // Mint tokens to alice
             await mintViaMultiSig(alice.address, 1000);
 
+            // Set fee token via multisig (use zero address for native ETH fees)
+            const setFeeTokenData = token.interface.encodeFunctionData("setFeeToken", [
+                feeToken.target
+            ]);
+            await executeViaMultiSig(setFeeTokenData);
+
             // Create a transfer request
             await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 500,
-                ethers.ZeroAddress,
                 0
             );
             const requestId = 1n;
@@ -327,12 +346,17 @@ describe("Remaining Coverage - Final Push to 90%+", function () {
             // Mint tokens to alice
             await mintViaMultiSig(alice.address, 1000);
 
+            // Set fee token via multisig (use zero address for native ETH fees)
+            const setFeeTokenData = token.interface.encodeFunctionData("setFeeToken", [
+                feeToken.target
+            ]);
+            await executeViaMultiSig(setFeeTokenData);
+
             // Create a transfer request
             await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 500,
-                ethers.ZeroAddress,
                 0
             );
             const requestId = 1n;

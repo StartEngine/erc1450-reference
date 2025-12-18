@@ -8,10 +8,10 @@ describe("ERC1450Upgradeable Security Token", function () {
     const REG_US_A = 0x0001; // Reg A
     const issuanceDate = Math.floor(Date.now() / 1000) - 86400 * 30; // 30 days ago
 
-    let ERC1450Upgradeable, RTAProxyUpgradeable;
-    let token, rtaProxy;
+    let ERC1450Upgradeable, RTAProxyUpgradeable, MockERC20;
+    let token, rtaProxy, feeToken;
     let owner, rta1, rta2, rta3, holder1, holder2, broker1;
-    let tokenAddress, rtaProxyAddress;
+    let tokenAddress, rtaProxyAddress, feeTokenAddress;
 
     beforeEach(async function () {
         // Get signers
@@ -20,6 +20,7 @@ describe("ERC1450Upgradeable Security Token", function () {
         // Get contract factories
         ERC1450Upgradeable = await ethers.getContractFactory("ERC1450Upgradeable");
         RTAProxyUpgradeable = await ethers.getContractFactory("RTAProxyUpgradeable");
+        MockERC20 = await ethers.getContractFactory("MockERC20");
 
         // Deploy RTAProxyUpgradeable with UUPS proxy
         rtaProxy = await upgrades.deployProxy(
@@ -38,6 +39,11 @@ describe("ERC1450Upgradeable Security Token", function () {
         );
         await token.waitForDeployment();
         tokenAddress = await token.getAddress();
+
+        // Deploy MockERC20 for fee token (6 decimals like USDC)
+        feeToken = await MockERC20.deploy("USD Coin", "USDC", 6);
+        await feeToken.waitForDeployment();
+        feeTokenAddress = await feeToken.getAddress();
     });
 
     describe("Deployment & Initialization", function () {
@@ -159,44 +165,131 @@ describe("ERC1450Upgradeable Security Token", function () {
             await rtaProxy.connect(rta2).confirmOperation(0);
         });
 
-        it("Should create and process transfer requests", async function () {
+        it("Should create and process transfer requests with ERC20 fee", async function () {
             const transferAmount = ethers.parseUnits("100", 10);
-            const feeAmount = ethers.parseUnits("0.01", 18);
+            const feeAmount = ethers.parseUnits("1", 6); // 1 USDC
 
-            // Request transfer
+            // Set fee token to USDC through multi-sig
+            const setFeeTokenData = token.interface.encodeFunctionData("setFeeToken", [feeTokenAddress]);
+            await rtaProxy.connect(rta1).submitOperation(tokenAddress, setFeeTokenData, 0);
+            await rtaProxy.connect(rta2).confirmOperation(1);
+
+            // Mint fee tokens to holder1 and approve
+            await feeToken.mint(holder1.address, ethers.parseUnits("10", 6));
+            await feeToken.connect(holder1).approve(tokenAddress, feeAmount);
+
+            // Request transfer with ERC20 fee
             await token.connect(holder1).requestTransferWithFee(
                 holder1.address,
                 holder2.address,
                 transferAmount,
-                ethers.ZeroAddress,
-                feeAmount,
-                { value: feeAmount }
+                feeAmount
             );
 
             // Process request through multi-sig
             const processData = token.interface.encodeFunctionData("processTransferRequest", [1, true]);
 
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, processData, 0);
-            await rtaProxy.connect(rta2).confirmOperation(1);
+            await rtaProxy.connect(rta2).confirmOperation(2);
 
             // Check balances
             expect(await token.balanceOf(holder2.address)).to.equal(transferAmount);
+            expect(await feeToken.balanceOf(tokenAddress)).to.equal(feeAmount);
         });
     });
 
     describe("Fee Management", function () {
-        it("Should set fee parameters through multi-sig", async function () {
+        it("Should set fee token and parameters through multi-sig", async function () {
+            // First set the fee token
+            const setFeeTokenData = token.interface.encodeFunctionData("setFeeToken", [feeTokenAddress]);
+            await rtaProxy.connect(rta1).submitOperation(tokenAddress, setFeeTokenData, 0);
+            await rtaProxy.connect(rta2).confirmOperation(0);
+
+            // Verify fee token was set
+            expect(await token.getFeeToken()).to.equal(feeTokenAddress);
+
+            // Then set fee parameters (only type and value)
             const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [
                 1, // percentage type
-                100, // 1% (100 basis points)
-                [ethers.ZeroAddress, holder1.address] // accepted tokens
+                100 // 1% (100 basis points)
             ]);
 
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, setFeeData, 0);
-            await rtaProxy.connect(rta2).confirmOperation(0);
+            await rtaProxy.connect(rta2).confirmOperation(1);
 
             expect(await token.feeType()).to.equal(1);
             expect(await token.feeValue()).to.equal(100);
+        });
+
+        it("Should calculate transfer fees correctly", async function () {
+            // Set fee token
+            const setFeeTokenData = token.interface.encodeFunctionData("setFeeToken", [feeTokenAddress]);
+            await rtaProxy.connect(rta1).submitOperation(tokenAddress, setFeeTokenData, 0);
+            await rtaProxy.connect(rta2).confirmOperation(0);
+
+            // Set percentage fee (1%)
+            const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [
+                1, // percentage type
+                100 // 1% (100 basis points)
+            ]);
+
+            await rtaProxy.connect(rta1).submitOperation(tokenAddress, setFeeData, 0);
+            await rtaProxy.connect(rta2).confirmOperation(1);
+
+            // Calculate fee for a transfer
+            const amount = ethers.parseUnits("100", 10);
+            const expectedFee = amount * 100n / 10000n; // 1% of amount
+
+            const calculatedFee = await token.getTransferFee(holder1.address, holder2.address, amount);
+            expect(calculatedFee).to.equal(expectedFee);
+        });
+
+        it("Should withdraw fees through multi-sig", async function () {
+            // First mint tokens to holder1
+            const mintAmount = ethers.parseUnits("1000", 10);
+            const mintData = token.interface.encodeFunctionData("mint", [holder1.address, mintAmount, REG_US_A, issuanceDate]);
+            await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
+            await rtaProxy.connect(rta2).confirmOperation(0);
+
+            // Set fee token to USDC
+            const setFeeTokenData = token.interface.encodeFunctionData("setFeeToken", [feeTokenAddress]);
+            await rtaProxy.connect(rta1).submitOperation(tokenAddress, setFeeTokenData, 0);
+            await rtaProxy.connect(rta2).confirmOperation(1);
+
+            // Collect some fees by creating a transfer request with fee
+            const transferAmount = ethers.parseUnits("100", 10);
+            const feeAmount = ethers.parseUnits("10", 6); // 10 USDC
+
+            // Mint fee tokens to holder1 and approve
+            await feeToken.mint(holder1.address, ethers.parseUnits("100", 6));
+            await feeToken.connect(holder1).approve(tokenAddress, feeAmount);
+
+            // Request transfer with ERC20 fee
+            await token.connect(holder1).requestTransferWithFee(
+                holder1.address,
+                holder2.address,
+                transferAmount,
+                feeAmount
+            );
+
+            // Process the request
+            const processData = token.interface.encodeFunctionData("processTransferRequest", [1, true]);
+            await rtaProxy.connect(rta1).submitOperation(tokenAddress, processData, 0);
+            await rtaProxy.connect(rta2).confirmOperation(2);
+
+            // Now withdraw fees
+            const withdrawAmount = ethers.parseUnits("5", 6);
+            const withdrawData = token.interface.encodeFunctionData("withdrawFees", [
+                withdrawAmount,
+                rtaProxyAddress
+            ]);
+
+            await rtaProxy.connect(rta1).submitOperation(tokenAddress, withdrawData, 0);
+            await rtaProxy.connect(rta2).confirmOperation(3);
+
+            // Verify fees were withdrawn
+            expect(await feeToken.balanceOf(rtaProxyAddress)).to.equal(withdrawAmount);
+            expect(await feeToken.balanceOf(tokenAddress)).to.equal(ethers.parseUnits("5", 6));
         });
     });
 

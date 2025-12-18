@@ -9,20 +9,18 @@ describe("Final Branch Coverage - Push to 90%+", function () {
     let ERC1450, token, RTAProxy, rtaProxy;
     let ERC1450Upgradeable, tokenUpgradeable, RTAProxyUpgradeable, rtaProxyUpgradeable;
     let owner, issuer, rta, alice, bob, charlie, signer2, signer3;
-    let mockERC20, mockERC20_2;
+    let feeToken;
 
     beforeEach(async function () {
         [owner, issuer, rta, alice, bob, charlie, signer2, signer3] = await ethers.getSigners();
 
-        // Deploy mock ERC20 tokens for fee payments
+        // Deploy mock ERC20 token for fee payments (6 decimals like USDC)
         const MockERC20 = await ethers.getContractFactory("MockERC20");
-        mockERC20 = await MockERC20.deploy("Mock Token", "MOCK", 18);
-        await mockERC20.waitForDeployment();
-        mockERC20_2 = await MockERC20.deploy("Mock Token 2", "MOCK2", 18);
-        await mockERC20_2.waitForDeployment();
+        feeToken = await MockERC20.deploy("USD Coin", "USDC", 6);
+        await feeToken.waitForDeployment();
 
-        // Mint some mock tokens to alice
-        await mockERC20.mint(alice.address, ethers.parseUnits("10000", 10));
+        // Mint some fee tokens to alice
+        await feeToken.mint(alice.address, ethers.parseUnits("10000", 6));
 
         // Deploy standard contracts
         RTAProxy = await ethers.getContractFactory("RTAProxy");
@@ -80,13 +78,11 @@ describe("Final Branch Coverage - Push to 90%+", function () {
 
         describe("Line 332: ERC20 fee token refund", function () {
             it("Should refund ERC20 token when rejecting transfer request", async function () {
-                // Set up ERC20 fee token via multi-sig
-                const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [
-                    0,
-                    ethers.parseUnits("10", 10),
-                    [mockERC20.target]
+                // First set the fee token via multi-sig
+                const setFeeTokenData = token.interface.encodeFunctionData("setFeeToken", [
+                    feeToken.target
                 ]);
-                const tx0 = await rtaProxy.connect(rta).submitOperation(token.target, setFeeData, 0);
+                const tx0 = await rtaProxy.connect(rta).submitOperation(token.target, setFeeTokenData, 0);
                 const receipt0 = await tx0.wait();
                 const opId0 = rtaProxy.interface.parseLog(
                     receipt0.logs.find(log => {
@@ -96,6 +92,22 @@ describe("Final Branch Coverage - Push to 90%+", function () {
                     })
                 ).args.operationId;
                 await rtaProxy.connect(signer2).confirmOperation(opId0);
+
+                // Then set fee parameters via multi-sig
+                const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [
+                    0,
+                    ethers.parseUnits("10", 6)
+                ]);
+                const tx0b = await rtaProxy.connect(rta).submitOperation(token.target, setFeeData, 0);
+                const receipt0b = await tx0b.wait();
+                const opId0b = rtaProxy.interface.parseLog(
+                    receipt0b.logs.find(log => {
+                        try {
+                            return rtaProxy.interface.parseLog(log).name === "OperationSubmitted";
+                        } catch { return false; }
+                    })
+                ).args.operationId;
+                await rtaProxy.connect(signer2).confirmOperation(opId0b);
 
                 // Mint tokens to alice
                 const mintData = token.interface.encodeFunctionData("mint", [alice.address, ethers.parseUnits("1000", 10)
@@ -112,15 +124,14 @@ describe("Final Branch Coverage - Push to 90%+", function () {
                 await rtaProxy.connect(signer2).confirmOperation(opId1);
 
                 // Alice approves ERC20 for fee payment
-                await mockERC20.connect(alice).approve(token.target, ethers.parseUnits("10", 10));
+                await feeToken.connect(alice).approve(token.target, ethers.parseUnits("10", 6));
 
                 // Alice requests transfer with ERC20 fee
                 const tx2 = await token.connect(alice).requestTransferWithFee(
                     alice.address,
                     bob.address,
                     ethers.parseUnits("100", 10),
-                    mockERC20.target,
-                    ethers.parseUnits("10", 10)
+                    ethers.parseUnits("10", 6)
                 );
 
                 const receipt2 = await tx2.wait();
@@ -134,7 +145,7 @@ describe("Final Branch Coverage - Push to 90%+", function () {
                 ).args.requestId;
 
                 // Check alice's ERC20 balance before refund
-                const balanceBefore = await mockERC20.balanceOf(alice.address);
+                const balanceBefore = await feeToken.balanceOf(alice.address);
 
                 // Reject with refund - THIS HITS LINE 332
                 const rejectData = token.interface.encodeFunctionData("rejectTransferRequest", [
@@ -154,18 +165,32 @@ describe("Final Branch Coverage - Push to 90%+", function () {
                 await rtaProxy.connect(signer2).confirmOperation(opId2);
 
                 // Check alice got refund
-                const balanceAfter = await mockERC20.balanceOf(alice.address);
-                expect(balanceAfter).to.equal(balanceBefore + ethers.parseUnits("10", 10));
+                const balanceAfter = await feeToken.balanceOf(alice.address);
+                expect(balanceAfter).to.equal(balanceBefore + ethers.parseUnits("10", 6));
             });
         });
 
-        describe("Line 354: getTransferFee with non-accepted token", function () {
-            it("Should return 0 for non-accepted fee token", async function () {
-                // Set up accepted fee tokens (only mockERC20, not mockERC20_2)
+        describe("Line 354: getTransferFee", function () {
+            it("Should return correct fee for the configured fee token", async function () {
+                // First set the fee token via multi-sig
+                const setFeeTokenData = token.interface.encodeFunctionData("setFeeToken", [
+                    feeToken.target
+                ]);
+                const tx0 = await rtaProxy.connect(rta).submitOperation(token.target, setFeeTokenData, 0);
+                const receipt0 = await tx0.wait();
+                const opId0 = rtaProxy.interface.parseLog(
+                    receipt0.logs.find(log => {
+                        try {
+                            return rtaProxy.interface.parseLog(log).name === "OperationSubmitted";
+                        } catch { return false; }
+                    })
+                ).args.operationId;
+                await rtaProxy.connect(signer2).confirmOperation(opId0);
+
+                // Then set fee parameters via multi-sig
                 const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [
                     0,
-                    ethers.parseUnits("5", 10),
-                    [mockERC20.target]
+                    ethers.parseUnits("5", 6)
                 ]);
                 const tx = await rtaProxy.connect(rta).submitOperation(token.target, setFeeData, 0);
                 const receipt = await tx.wait();
@@ -178,15 +203,14 @@ describe("Final Branch Coverage - Push to 90%+", function () {
                 ).args.operationId;
                 await rtaProxy.connect(signer2).confirmOperation(opId);
 
-                // Query fee for non-accepted token - THIS HITS LINE 354
+                // Query fee
                 const fee = await token.getTransferFee(
                     alice.address,
                     bob.address,
-                    ethers.parseUnits("100", 10),
-                    mockERC20_2.target  // This token is NOT in the accepted list
+                    ethers.parseUnits("100", 10)
                 );
 
-                expect(fee).to.equal(0);
+                expect(fee).to.equal(ethers.parseUnits("5", 6));
             });
         });
     });
@@ -210,10 +234,29 @@ describe("Final Branch Coverage - Push to 90%+", function () {
 
         describe("ERC20 fee token refund", function () {
             it("Should refund ERC20 token when rejecting transfer request", async function () {
+                // First set the fee token via multi-sig
+                const setFeeTokenData = tokenUpgradeable.interface.encodeFunctionData("setFeeToken", [
+                    feeToken.target
+                ]);
+                const tx0 = await rtaProxyUpgradeable.connect(rta).submitOperation(
+                    tokenUpgradeable.target,
+                    setFeeTokenData,
+                    0
+                );
+                const receipt0 = await tx0.wait();
+                const opId0 = rtaProxyUpgradeable.interface.parseLog(
+                    receipt0.logs.find(log => {
+                        try {
+                            return rtaProxyUpgradeable.interface.parseLog(log).name === "OperationSubmitted";
+                        } catch { return false; }
+                    })
+                ).args.operationId;
+                await rtaProxyUpgradeable.connect(signer2).confirmOperation(opId0);
+
+                // Then set fee parameters via multi-sig
                 const setFeeData = tokenUpgradeable.interface.encodeFunctionData("setFeeParameters", [
                     0,
-                    ethers.parseUnits("10", 10),
-                    [mockERC20.target]
+                    ethers.parseUnits("10", 6)
                 ]);
                 const tx1 = await rtaProxyUpgradeable.connect(rta).submitOperation(
                     tokenUpgradeable.target,
@@ -247,14 +290,13 @@ describe("Final Branch Coverage - Push to 90%+", function () {
                 ).args.operationId;
                 await rtaProxyUpgradeable.connect(signer2).confirmOperation(opId2);
 
-                await mockERC20.connect(alice).approve(tokenUpgradeable.target, ethers.parseUnits("10", 10));
+                await feeToken.connect(alice).approve(tokenUpgradeable.target, ethers.parseUnits("10", 6));
 
                 const tx3 = await tokenUpgradeable.connect(alice).requestTransferWithFee(
                     alice.address,
                     bob.address,
                     ethers.parseUnits("100", 10),
-                    mockERC20.target,
-                    ethers.parseUnits("10", 10)
+                    ethers.parseUnits("10", 6)
                 );
 
                 const receipt3 = await tx3.wait();
@@ -267,7 +309,7 @@ describe("Final Branch Coverage - Push to 90%+", function () {
                     })
                 ).args.requestId;
 
-                const balanceBefore = await mockERC20.balanceOf(alice.address);
+                const balanceBefore = await feeToken.balanceOf(alice.address);
 
                 const rejectData = tokenUpgradeable.interface.encodeFunctionData("rejectTransferRequest", [
                     requestId,
@@ -289,17 +331,36 @@ describe("Final Branch Coverage - Push to 90%+", function () {
                 ).args.operationId;
                 await rtaProxyUpgradeable.connect(signer2).confirmOperation(opId3);
 
-                const balanceAfter = await mockERC20.balanceOf(alice.address);
+                const balanceAfter = await feeToken.balanceOf(alice.address);
                 expect(balanceAfter).to.be.gt(balanceBefore);
             });
         });
 
-        describe("getTransferFee with non-accepted token", function () {
-            it("Should return 0 for non-accepted fee token", async function () {
+        describe("getTransferFee", function () {
+            it("Should return correct fee for the configured fee token", async function () {
+                // First set the fee token via multi-sig
+                const setFeeTokenData = tokenUpgradeable.interface.encodeFunctionData("setFeeToken", [
+                    feeToken.target
+                ]);
+                const tx0 = await rtaProxyUpgradeable.connect(rta).submitOperation(
+                    tokenUpgradeable.target,
+                    setFeeTokenData,
+                    0
+                );
+                const receipt0 = await tx0.wait();
+                const opId0 = rtaProxyUpgradeable.interface.parseLog(
+                    receipt0.logs.find(log => {
+                        try {
+                            return rtaProxyUpgradeable.interface.parseLog(log).name === "OperationSubmitted";
+                        } catch { return false; }
+                    })
+                ).args.operationId;
+                await rtaProxyUpgradeable.connect(signer2).confirmOperation(opId0);
+
+                // Then set fee parameters via multi-sig
                 const setFeeData = tokenUpgradeable.interface.encodeFunctionData("setFeeParameters", [
                     0,
-                    ethers.parseUnits("5", 10),
-                    [mockERC20.target]
+                    ethers.parseUnits("5", 6)
                 ]);
                 const tx = await rtaProxyUpgradeable.connect(rta).submitOperation(
                     tokenUpgradeable.target,
@@ -319,11 +380,10 @@ describe("Final Branch Coverage - Push to 90%+", function () {
                 const fee = await tokenUpgradeable.getTransferFee(
                     alice.address,
                     bob.address,
-                    ethers.parseUnits("100", 10),
-                    mockERC20_2.target
+                    ethers.parseUnits("100", 10)
                 );
 
-                expect(fee).to.equal(0);
+                expect(fee).to.equal(ethers.parseUnits("5", 6));
             });
         });
     });

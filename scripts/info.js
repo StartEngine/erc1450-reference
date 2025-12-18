@@ -35,20 +35,29 @@ async function main() {
     console.log("  Transfer Agent:", rtaProxy.target);
     console.log("  Is Security Token:", await token.isSecurityToken());
 
-    // Fee information
-    const acceptedTokens = await token.getAcceptedFeeTokens();
+    // Fee information - need to set fee token first for demo
+    // Deploy MockERC20 for fee token
+    const MockERC20 = await ethers.getContractFactory("MockERC20");
+    const feeTokenContract = await MockERC20.deploy("USD Coin", "USDC", 6);
+    await feeTokenContract.waitForDeployment();
+
+    // Set fee token via RTA
+    const setFeeTokenData = token.interface.encodeFunctionData("setFeeToken", [feeTokenContract.target]);
+    await rtaProxy.connect(rta1).submitOperation(token.target, setFeeTokenData, 0);
+    await rtaProxy.connect(rta2).confirmOperation(0);
+
+    const configuredFeeToken = await token.getFeeToken();
     const feeAmount = await token.getTransferFee(
         ethers.ZeroAddress,
         ethers.ZeroAddress,
-        ethers.parseEther("1000"),
-        ethers.ZeroAddress  // Check fee for native token
+        ethers.parseEther("1000")
     );
 
     console.log("\nFee Configuration:");
-    console.log("  Fee Type:", await token.feeType(), "(0=flat, 1=percentage, 2=tiered)");
+    console.log("  Fee Type:", await token.feeType(), "(0=flat, 1=percentage)");
     console.log("  Fee Value:", await token.feeValue());
-    console.log("  Sample fee for 1000 tokens:", ethers.formatEther(feeAmount));
-    console.log("  Accepted fee tokens:", acceptedTokens.map(t => t === ethers.ZeroAddress ? "ETH" : t).join(', '));
+    console.log("  Sample fee for 1000 tokens:", feeAmount.toString());
+    console.log("  Fee Token:", configuredFeeToken);
 
     // Interface support
     console.log("\nSupported Interfaces (ERC-165):");
@@ -87,8 +96,8 @@ async function main() {
     await submitTx.wait();
     console.log("  ✓ Operation submitted by signer 1");
 
-    // Second signer confirms (auto-executes)
-    await rtaProxy.connect(rta2).confirmOperation(0);
+    // Second signer confirms (auto-executes) - operation ID 1 (after setFeeToken at 0)
+    await rtaProxy.connect(rta2).confirmOperation(1);
     console.log("  ✓ Operation confirmed by signer 2 (executed)");
 
     console.log("\nUpdated Token Supply:", ethers.formatEther(await token.totalSupply()), "SEST");
@@ -100,12 +109,12 @@ async function main() {
     const transferAmount = ethers.parseEther("100");
     console.log("Creating transfer request from issuer to", rta3.address);
 
+    // For this demo, use 0 fee
     const requestTx = await token.connect(issuer).requestTransferWithFee(
         issuer.address,
         rta3.address,
         transferAmount,
-        ethers.ZeroAddress,
-        0
+        0 // No fee for this demo
     );
     await requestTx.wait();
     console.log("  ✓ Transfer request #1 created");
@@ -124,7 +133,7 @@ async function main() {
     await rtaProxy.connect(rta1).submitOperation(token.target, processData, 0);
     console.log("\n  ✓ Process operation submitted");
 
-    await rtaProxy.connect(rta2).confirmOperation(1);
+    await rtaProxy.connect(rta2).confirmOperation(2);
     console.log("  ✓ Transfer executed");
 
     console.log("\nFinal Balances:");

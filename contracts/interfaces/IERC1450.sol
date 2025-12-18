@@ -110,8 +110,9 @@ interface IERC1450 is IERC20, IERC165 {
     );
 
     // Fee events
-    event FeeParametersUpdated(uint8 feeType, uint256 feeValue, address[] acceptedTokens);
-    event FeesWithdrawn(address indexed token, uint256 amount, address indexed recipient);
+    event FeeParametersUpdated(uint8 feeType, uint256 feeValue);
+    event FeeTokenUpdated(address indexed previousToken, address indexed newToken);
+    event FeesWithdrawn(uint256 amount, address indexed recipient);
     event BrokerStatusUpdated(address indexed broker, bool isApproved, address indexed updatedBy);
 
     // Account restriction events
@@ -315,52 +316,53 @@ interface IERC1450 is IERC20, IERC165 {
      * @param from Source address
      * @param to Destination address
      * @param amount Number of tokens
-     * @param feeToken Fee payment token (address(0) for native)
-     * @param feeAmount Fee amount being paid
+     * @param feeAmount Fee amount being paid (in the configured fee token)
      * @return requestId Unique request identifier
+     * @dev Fee must be paid in the configured fee token (see getFeeToken())
      */
     function requestTransferWithFee(
         address from,
         address to,
         uint256 amount,
-        address feeToken,
         uint256 feeAmount
-    ) external payable returns (uint256 requestId);
+    ) external returns (uint256 requestId);
 
     /**
-     * @notice Get current fee for a transfer in a specific token
+     * @notice Get current fee for a transfer
      * @param from Source address
      * @param to Destination address
      * @param amount Transfer amount
-     * @param feeToken Token to pay fee in (address(0) for native token)
-     * @return feeAmount Required fee amount in the specified token
-     *         Returns 0 if the token is not accepted
+     * @return feeAmount Required fee amount in the configured fee token
+     * @dev Fee is always denominated in the configured fee token (see getFeeToken())
      */
-    function getTransferFee(address from, address to, uint256 amount, address feeToken)
+    function getTransferFee(address from, address to, uint256 amount)
         external view returns (uint256 feeAmount);
 
     /**
-     * @notice Get all accepted fee tokens for transfers
-     * @return acceptedTokens Array of accepted fee token addresses
+     * @notice Get the configured fee token address
+     * @return token The ERC-20 token used for fee payments
      */
-    function getAcceptedFeeTokens()
-        external view returns (address[] memory acceptedTokens);
+    function getFeeToken() external view returns (address token);
+
+    /**
+     * @notice Set the fee token (RTA only)
+     * @param newFeeToken Address of the ERC-20 token to use for fees
+     */
+    function setFeeToken(address newFeeToken) external;
 
     /**
      * @notice Set fee parameters (RTA only)
-     * @param feeType Fee structure type
-     * @param feeValue Fee amount or percentage
-     * @param acceptedTokens Array of accepted fee tokens
+     * @param feeType Fee structure type (0 = flat, 1 = percentage in basis points)
+     * @param feeValue Fee amount or percentage basis points
      */
-    function setFeeParameters(uint8 feeType, uint256 feeValue, address[] calldata acceptedTokens) external;
+    function setFeeParameters(uint8 feeType, uint256 feeValue) external;
 
     /**
      * @notice Withdraw collected fees (RTA only)
-     * @param token Token to withdraw
      * @param amount Amount to withdraw
      * @param recipient Recipient address
      */
-    function withdrawFees(address token, uint256 amount, address recipient) external;
+    function withdrawFees(uint256 amount, address recipient) external;
 
     // ============ Broker Management ============
 

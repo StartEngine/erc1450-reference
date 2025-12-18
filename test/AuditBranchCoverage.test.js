@@ -10,13 +10,19 @@ describe("Audit Branch Coverage - Target 80%+", function () {
     const issuanceDate1 = Math.floor(Date.now() / 1000) - 86400 * 30;
     const issuanceDate2 = Math.floor(Date.now() / 1000) - 86400 * 60;
 
-    let token, tokenUpgradeable;
+    let token, tokenUpgradeable, feeToken;
     let rtaProxy, rtaProxyUpgradeable;
     let owner, rta1, rta2, rta3, alice, bob, carol, dave;
-    let tokenAddress, tokenUpgradeableAddress;
+    let tokenAddress, tokenUpgradeableAddress, feeTokenAddress;
 
     beforeEach(async function () {
         [owner, rta1, rta2, rta3, alice, bob, carol, dave] = await ethers.getSigners();
+
+        // Deploy MockERC20 for fee payments
+        const MockERC20 = await ethers.getContractFactory("MockERC20");
+        feeToken = await MockERC20.deploy("Mock USDC", "USDC", 6);
+        await feeToken.waitForDeployment();
+        feeTokenAddress = await feeToken.getAddress();
 
         // Deploy RTAProxy
         const RTAProxy = await ethers.getContractFactory("RTAProxy");
@@ -200,34 +206,37 @@ describe("Audit Branch Coverage - Target 80%+", function () {
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
 
-            const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseUnits("0.01", 10), [ethers.ZeroAddress]
-            ]);
-            await rtaProxy.connect(rta1).submitOperation(tokenAddress, setFeeData, 0);
+            // Set fee token
+            const setFeeTokenData = token.interface.encodeFunctionData("setFeeToken", [feeTokenAddress]);
+            await rtaProxy.connect(rta1).submitOperation(tokenAddress, setFeeTokenData, 0);
             await rtaProxy.connect(rta2).confirmOperation(1);
+
+            const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [0, ethers.parseUnits("1", 6)]);
+            await rtaProxy.connect(rta1).submitOperation(tokenAddress, setFeeData, 0);
+            await rtaProxy.connect(rta2).confirmOperation(2);
+
+            // Mint fee tokens to alice and approve
+            await feeToken.mint(alice.address, ethers.parseUnits("100", 6));
+            await feeToken.connect(alice).approve(tokenAddress, ethers.parseUnits("100", 6));
 
             // Create transfer requests
             await token.connect(alice).requestTransferWithFee(
-                alice.address, bob.address, ethers.parseUnits("100", 10),
-                ethers.ZeroAddress, ethers.parseUnits("0.01", 10),
-                { value: ethers.parseUnits("0.01", 10) }
+                alice.address, bob.address, ethers.parseUnits("100", 10), ethers.parseUnits("1", 6)
             );
 
             await token.connect(alice).requestTransferWithFee(
-                alice.address, carol.address, ethers.parseUnits("200", 10),
-                ethers.ZeroAddress, ethers.parseUnits("0.01", 10),
-                { value: ethers.parseUnits("0.01", 10) }
+                alice.address, carol.address, ethers.parseUnits("200", 10), ethers.parseUnits("1", 6)
             );
 
             // Process first request
             const processData = token.interface.encodeFunctionData("processTransferRequest", [1, true]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, processData, 0);
-            await rtaProxy.connect(rta2).confirmOperation(2);
+            await rtaProxy.connect(rta2).confirmOperation(3);
 
             // Reject second request without refund
             const rejectData = token.interface.encodeFunctionData("rejectTransferRequest", [2, 1, false]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, rejectData, 0);
-            await rtaProxy.connect(rta2).confirmOperation(3);
+            await rtaProxy.connect(rta2).confirmOperation(4);
 
             expect(await token.balanceOf(bob.address)).to.equal(ethers.parseUnits("100", 10));
             expect(await token.balanceOf(carol.address)).to.equal(0);
@@ -241,34 +250,39 @@ describe("Audit Branch Coverage - Target 80%+", function () {
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
             await rtaProxy.connect(rta2).confirmOperation(0);
 
-            const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseUnits("0.1", 10), [ethers.ZeroAddress]
-            ]);
-            await rtaProxy.connect(rta1).submitOperation(tokenAddress, setFeeData, 0);
+            // Set fee token
+            const setFeeTokenData = token.interface.encodeFunctionData("setFeeToken", [feeTokenAddress]);
+            await rtaProxy.connect(rta1).submitOperation(tokenAddress, setFeeTokenData, 0);
             await rtaProxy.connect(rta2).confirmOperation(1);
+
+            const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [0, ethers.parseUnits("1", 6)]);
+            await rtaProxy.connect(rta1).submitOperation(tokenAddress, setFeeData, 0);
+            await rtaProxy.connect(rta2).confirmOperation(2);
+
+            // Mint fee tokens to alice and approve
+            await feeToken.mint(alice.address, ethers.parseUnits("100", 6));
+            await feeToken.connect(alice).approve(tokenAddress, ethers.parseUnits("100", 6));
 
             // Create and process transfer to collect fees
             await token.connect(alice).requestTransferWithFee(
-                alice.address, bob.address, ethers.parseUnits("100", 10),
-                ethers.ZeroAddress, ethers.parseUnits("0.1", 10),
-                { value: ethers.parseUnits("0.1", 10) }
+                alice.address, bob.address, ethers.parseUnits("100", 10), ethers.parseUnits("1", 6)
             );
 
             const processData = token.interface.encodeFunctionData("processTransferRequest", [1, true]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, processData, 0);
-            await rtaProxy.connect(rta2).confirmOperation(2);
+            await rtaProxy.connect(rta2).confirmOperation(3);
 
             // Withdraw fees
             const withdrawData = token.interface.encodeFunctionData("withdrawFees", [
-                ethers.ZeroAddress, ethers.parseUnits("0.1", 10), dave.address
+                ethers.parseUnits("1", 6), dave.address
             ]);
             await rtaProxy.connect(rta1).submitOperation(tokenAddress, withdrawData, 0);
 
-            const balanceBefore = await ethers.provider.getBalance(dave.address);
-            await rtaProxy.connect(rta2).confirmOperation(3);
-            const balanceAfter = await ethers.provider.getBalance(dave.address);
+            const balanceBefore = await feeToken.balanceOf(dave.address);
+            await rtaProxy.connect(rta2).confirmOperation(4);
+            const balanceAfter = await feeToken.balanceOf(dave.address);
 
-            expect(balanceAfter).to.be.gt(balanceBefore);
+            expect(balanceAfter - balanceBefore).to.equal(ethers.parseUnits("1", 6));
         });
     });
 
@@ -306,25 +320,23 @@ describe("Audit Branch Coverage - Target 80%+", function () {
         });
 
         it("Should test fee parameters with different types", async function () {
+            // Set fee token first
+            const setFeeTokenData = tokenUpgradeable.interface.encodeFunctionData("setFeeToken", [feeTokenAddress]);
+            await rtaProxyUpgradeable.connect(rta1).submitOperation(tokenUpgradeableAddress, setFeeTokenData, 0);
+            await rtaProxyUpgradeable.connect(rta2).confirmOperation(0);
+
             // Test flat fee
             const setFlatFeeData = tokenUpgradeable.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseUnits("0.5", 10), [ethers.ZeroAddress]
+                0, ethers.parseUnits("1", 6)
             ]);
             await rtaProxyUpgradeable.connect(rta1).submitOperation(tokenUpgradeableAddress, setFlatFeeData, 0);
-            await rtaProxyUpgradeable.connect(rta2).confirmOperation(0);
+            await rtaProxyUpgradeable.connect(rta2).confirmOperation(1);
 
             // Test percentage fee
             const setPercentageFeeData = tokenUpgradeable.interface.encodeFunctionData("setFeeParameters", [
-                1, 100, [ethers.ZeroAddress] // 1% = 100 basis points
+                1, 100 // 1% = 100 basis points
             ]);
             await rtaProxyUpgradeable.connect(rta1).submitOperation(tokenUpgradeableAddress, setPercentageFeeData, 0);
-            await rtaProxyUpgradeable.connect(rta2).confirmOperation(1);
-
-            // Test other fee type
-            const setOtherFeeData = tokenUpgradeable.interface.encodeFunctionData("setFeeParameters", [
-                2, ethers.parseUnits("1", 10), []
-            ]);
-            await rtaProxyUpgradeable.connect(rta1).submitOperation(tokenUpgradeableAddress, setOtherFeeData, 0);
             await rtaProxyUpgradeable.connect(rta2).confirmOperation(2);
         });
 

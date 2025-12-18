@@ -15,6 +15,7 @@ describe("Coverage Boost Tests", function () {
     let RTAProxy, rtaProxy;
     let RTAProxyUpgradeable, rtaProxyUpgradeable, rtaProxyUpgradeableAddress;
     let owner, rta1, rta2, rta3, alice, bob, carol, broker;
+    let feeToken;
 
     async function submitAndConfirmOperation(proxy, target, data, signers) {
         const tx = await proxy.connect(signers[0]).submitOperation(target, data, 0);
@@ -67,6 +68,11 @@ describe("Coverage Boost Tests", function () {
         );
         await tokenUpgradeable.waitForDeployment();
         tokenUpgradeableAddress = await tokenUpgradeable.getAddress();
+
+        // Deploy MockERC20 for fee token with 6 decimals (like USDC)
+        const MockERC20 = await ethers.getContractFactory("MockERC20");
+        feeToken = await MockERC20.deploy("Fee Token", "FEE", 6);
+        await feeToken.waitForDeployment();
     });
 
     describe("Batch Cleanup Coverage", function () {
@@ -131,9 +137,14 @@ describe("Coverage Boost Tests", function () {
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, mintData, [rta1, rta2]);
 
-            // Set zero fee
+            // Set fee token and zero fee
+            const setFeeTokenData = token.interface.encodeFunctionData("setFeeToken", [
+                await feeToken.getAddress()
+            ]);
+            await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeTokenData, [rta1, rta2]);
+
             const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [
-                0, 0, [ethers.ZeroAddress]
+                0, 0
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeData, [rta1, rta2]);
 
@@ -142,7 +153,6 @@ describe("Coverage Boost Tests", function () {
                 alice.address,
                 bob.address,
                 ethers.parseUnits("50", 10),
-                ethers.ZeroAddress,
                 0
             );
 
@@ -162,19 +172,27 @@ describe("Coverage Boost Tests", function () {
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, mintData, [rta1, rta2]);
 
+            // Set fee token and fee parameters
+            const setFeeTokenData = token.interface.encodeFunctionData("setFeeToken", [
+                await feeToken.getAddress()
+            ]);
+            await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeTokenData, [rta1, rta2]);
+
             const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseUnits("0.01", 10), [ethers.ZeroAddress]
+                0, ethers.parseUnits("0.01", 6)
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeData, [rta1, rta2]);
+
+            // Mint fee tokens to alice and approve
+            await feeToken.mint(alice.address, ethers.parseUnits("10", 6));
+            await feeToken.connect(alice).approve(tokenAddress, ethers.parseUnits("10", 6));
 
             // Create request
             await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 ethers.parseUnits("100", 10),
-                ethers.ZeroAddress,
-                ethers.parseUnits("0.01", 10),
-                { value: ethers.parseUnits("0.01", 10) }
+                ethers.parseUnits("0.01", 6)
             );
 
             // Process the request directly
@@ -192,28 +210,36 @@ describe("Coverage Boost Tests", function () {
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, mintData, [rta1, rta2]);
 
+            // Set fee token and fee parameters
+            const setFeeTokenData = token.interface.encodeFunctionData("setFeeToken", [
+                await feeToken.getAddress()
+            ]);
+            await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeTokenData, [rta1, rta2]);
+
             const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseUnits("0.01", 10), [ethers.ZeroAddress]
+                0, ethers.parseUnits("0.01", 6)
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeData, [rta1, rta2]);
+
+            // Mint fee tokens to alice and approve
+            await feeToken.mint(alice.address, ethers.parseUnits("10", 6));
+            await feeToken.connect(alice).approve(tokenAddress, ethers.parseUnits("10", 6));
 
             // Create request
             await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 ethers.parseUnits("50", 10),
-                ethers.ZeroAddress,
-                ethers.parseUnits("0.01", 10),
-                { value: ethers.parseUnits("0.01", 10) }
+                ethers.parseUnits("0.01", 6)
             );
 
-            const balanceBefore = await ethers.provider.getBalance(alice.address);
+            const balanceBefore = await feeToken.balanceOf(alice.address);
 
             // Reject with refund
             const rejectData = token.interface.encodeFunctionData("rejectTransferRequest", [1, 1, true]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, rejectData, [rta1, rta2]);
 
-            const balanceAfter = await ethers.provider.getBalance(alice.address);
+            const balanceAfter = await feeToken.balanceOf(alice.address);
             expect(balanceAfter).to.be.gt(balanceBefore); // Refund received
         });
     });

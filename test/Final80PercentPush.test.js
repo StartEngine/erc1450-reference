@@ -10,6 +10,7 @@ describe("Final 80% Push - Uncovered Branches", function () {
     let rtaProxy, rtaProxyUpgradeable;
     let owner, rta1, rta2, alice, bob, carol;
     let tokenAddress, tokenUpgradeableAddress;
+    let MockERC20, feeToken;
 
     async function submitAndConfirmOperation(proxy, target, data, signers) {
         const opId = await proxy.operationCount();
@@ -21,6 +22,11 @@ describe("Final 80% Push - Uncovered Branches", function () {
 
     beforeEach(async function () {
         [owner, rta1, rta2, alice, bob, carol] = await ethers.getSigners();
+
+        // Deploy mock USDC for fee payments (6 decimals like real USDC)
+        MockERC20 = await ethers.getContractFactory("MockERC20");
+        feeToken = await MockERC20.deploy("Mock USDC", "USDC", 6);
+        await feeToken.waitForDeployment();
 
         // Deploy RTAProxy
         const RTAProxy = await ethers.getContractFactory("RTAProxy");
@@ -68,16 +74,24 @@ describe("Final 80% Push - Uncovered Branches", function () {
             await submitAndConfirmOperation(rtaProxy, tokenAddress, mintData, [rta1, rta2]);
 
             // Set fees
+            const setFeeTokenData = token.interface.encodeFunctionData("setFeeToken", [
+                await feeToken.getAddress()
+            ]);
+            await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeTokenData, [rta1, rta2]);
+
             const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseUnits("0.01", 10), [ethers.ZeroAddress]
+                0, ethers.parseUnits("0.01", 6)
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeData, [rta1, rta2]);
+
+            // Mint fee tokens to alice and approve
+            await feeToken.mint(alice.address, ethers.parseUnits("1", 6));
+            await feeToken.connect(alice).approve(tokenAddress, ethers.parseUnits("1", 6));
 
             // Create a transfer request
             await token.connect(alice).requestTransferWithFee(
                 alice.address, bob.address, ethers.parseUnits("100", 10),
-                ethers.ZeroAddress, ethers.parseUnits("0.01", 10),
-                { value: ethers.parseUnits("0.01", 10) }
+                ethers.parseUnits("0.01", 6)
             );
 
             // Update request status directly (testing the updateRequestStatus function)
@@ -93,17 +107,25 @@ describe("Final 80% Push - Uncovered Branches", function () {
             await submitAndConfirmOperation(rtaProxy, tokenAddress, mintData, [rta1, rta2]);
 
             // Set fees
+            const setFeeTokenData = token.interface.encodeFunctionData("setFeeToken", [
+                await feeToken.getAddress()
+            ]);
+            await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeTokenData, [rta1, rta2]);
+
             const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseUnits("0.01", 10), [ethers.ZeroAddress]
+                0, ethers.parseUnits("0.01", 6)
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeData, [rta1, rta2]);
+
+            // Mint fee tokens to bob and approve
+            await feeToken.mint(bob.address, ethers.parseUnits("1", 6));
+            await feeToken.connect(bob).approve(tokenAddress, ethers.parseUnits("1", 6));
 
             // Try to request transfer from alice's account by bob (who is not a broker and not alice)
             await expect(
                 token.connect(bob).requestTransferWithFee(
                     alice.address, carol.address, ethers.parseUnits("100", 10),
-                    ethers.ZeroAddress, ethers.parseUnits("0.01", 10),
-                    { value: ethers.parseUnits("0.01", 10) }
+                    ethers.parseUnits("0.01", 6)
                 )
             ).to.be.reverted; // Should revert with OwnableUnauthorizedAccount
         });
@@ -115,44 +137,57 @@ describe("Final 80% Push - Uncovered Branches", function () {
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, mintData, [rta1, rta2]);
 
-            // Set fees with only native token
+            // Set fee token
+            const setFeeTokenData = token.interface.encodeFunctionData("setFeeToken", [
+                await feeToken.getAddress()
+            ]);
+            await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeTokenData, [rta1, rta2]);
+
+            // Set fees
             const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseUnits("0.01", 10), [ethers.ZeroAddress]
+                0, ethers.parseUnits("0.01", 6)
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeData, [rta1, rta2]);
 
-            // Try to use a non-accepted fee token
+            // Try to request transfer without approving fee token (insufficient allowance)
             await expect(
                 token.connect(alice).requestTransferWithFee(
                     alice.address, bob.address, ethers.parseUnits("100", 10),
-                    alice.address, // Using alice's address as invalid fee token
-                    ethers.parseUnits("0.01", 10),
-                    { value: 0 }
+                    ethers.parseUnits("0.01", 6)
                 )
-            ).to.be.reverted; // Should revert with ERC20InvalidReceiver
+            ).to.be.reverted; // Should revert with ERC20InsufficientAllowance
         });
 
-        it("Should handle incorrect native token payment amount", async function () {
+        it("Should handle incorrect fee token payment amount", async function () {
             // Mint tokens
             const mintData = token.interface.encodeFunctionData("mint", [
                 alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate1
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, mintData, [rta1, rta2]);
 
+            // Set fee token
+            const setFeeTokenData = token.interface.encodeFunctionData("setFeeToken", [
+                await feeToken.getAddress()
+            ]);
+            await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeTokenData, [rta1, rta2]);
+
             // Set fees
             const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseUnits("0.01", 10), [ethers.ZeroAddress]
+                0, ethers.parseUnits("0.01", 6)
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeData, [rta1, rta2]);
 
-            // Send wrong amount of native token
+            // Mint insufficient fee tokens and approve
+            await feeToken.mint(alice.address, ethers.parseUnits("0.005", 6)); // Not enough
+            await feeToken.connect(alice).approve(tokenAddress, ethers.parseUnits("0.005", 6));
+
+            // Try to pay with insufficient fee tokens
             await expect(
                 token.connect(alice).requestTransferWithFee(
                     alice.address, bob.address, ethers.parseUnits("100", 10),
-                    ethers.ZeroAddress, ethers.parseUnits("0.01", 10),
-                    { value: ethers.parseUnits("0.005", 10) } // Wrong amount
+                    ethers.parseUnits("0.01", 6)
                 )
-            ).to.be.reverted; // Should revert with ERC20InsufficientBalance
+            ).to.be.reverted; // Should revert with ERC20InsufficientAllowance or ERC20InsufficientBalance
         });
     });
 
@@ -165,17 +200,26 @@ describe("Final 80% Push - Uncovered Branches", function () {
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, mintData, [rta1, rta2]);
 
+            // Set fee token
+            const setFeeTokenData = tokenUpgradeable.interface.encodeFunctionData("setFeeToken", [
+                await feeToken.getAddress()
+            ]);
+            await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, setFeeTokenData, [rta1, rta2]);
+
             // Set fees
             const setFeeData = tokenUpgradeable.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseUnits("0.01", 10), [ethers.ZeroAddress]
+                0, ethers.parseUnits("0.01", 6)
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, setFeeData, [rta1, rta2]);
+
+            // Mint fee tokens to alice and approve
+            await feeToken.mint(alice.address, ethers.parseUnits("1", 6));
+            await feeToken.connect(alice).approve(tokenUpgradeableAddress, ethers.parseUnits("1", 6));
 
             // Create a transfer request
             await tokenUpgradeable.connect(alice).requestTransferWithFee(
                 alice.address, bob.address, ethers.parseUnits("100", 10),
-                ethers.ZeroAddress, ethers.parseUnits("0.01", 10),
-                { value: ethers.parseUnits("0.01", 10) }
+                ethers.parseUnits("0.01", 6)
             );
 
             // Update request status

@@ -8,9 +8,15 @@ describe("Deep Branch Coverage - Push to 90%+", function () {
     let ERC1450, token, ERC1450Upgradeable, tokenUpgradeable;
     let RTAProxy, rtaProxy, RTAProxyUpgradeable, rtaProxyUpgradeable;
     let owner, issuer, rta, alice, bob, carol, signer2, signer3;
+    let MockERC20, feeToken;
 
     beforeEach(async function () {
         [owner, issuer, rta, alice, bob, carol, signer2, signer3] = await ethers.getSigners();
+
+        // Deploy mock USDC for fee payments (6 decimals like real USDC)
+        MockERC20 = await ethers.getContractFactory("MockERC20");
+        feeToken = await MockERC20.deploy("Mock USDC", "USDC", 6);
+        await feeToken.waitForDeployment();
 
         // Deploy standard contracts
         RTAProxy = await ethers.getContractFactory("RTAProxy");
@@ -188,75 +194,68 @@ describe("Deep Branch Coverage - Push to 90%+", function () {
         });
 
         it("Should handle ERC20 fee token payment with exact amount", async function () {
-            const MockERC20 = await ethers.getContractFactory("MockERC20");
-            const feeToken = await MockERC20.deploy("Fee Token", "FEE", 18);
-            await feeToken.waitForDeployment();
-
             await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
-            await feeToken.mint(alice.address, ethers.parseUnits("100", 10));
+            await feeToken.mint(alice.address, ethers.parseUnits("100", 6));
 
-            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("10", 10), [feeToken.target]);
+            await token.connect(rta).setFeeToken(feeToken.target);
+            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("10", 6));
 
-            await feeToken.connect(alice).approve(token.target, ethers.parseUnits("10", 10));
+            await feeToken.connect(alice).approve(token.target, ethers.parseUnits("10", 6));
 
             const tx = await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 ethers.parseUnits("100", 10),
-                feeToken.target,
-                ethers.parseUnits("10", 10)
+                ethers.parseUnits("10", 6)
             );
 
             expect(tx).to.emit(token, "TransferRequested");
-            expect(await token.collectedFees(feeToken.target)).to.equal(ethers.parseUnits("10", 10));
+            expect(await token.collectedFees()).to.equal(ethers.parseUnits("10", 6));
         });
 
         it("Should handle rejected fee token", async function () {
             const MockERC20 = await ethers.getContractFactory("MockERC20");
-            const feeToken = await MockERC20.deploy("Fee Token", "FEE", 18);
-            await feeToken.waitForDeployment();
+            const wrongFeeToken = await MockERC20.deploy("Fee Token", "FEE", 18);
+            await wrongFeeToken.waitForDeployment();
 
             await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
-            await feeToken.mint(alice.address, ethers.parseUnits("100", 10));
+            await wrongFeeToken.mint(alice.address, ethers.parseUnits("100", 18));
 
-            // Don't add feeToken to accepted list
-            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 18), [ethers.ZeroAddress]);
+            // Set a different token as the accepted fee token
+            await token.connect(rta).setFeeToken(feeToken.target);
+            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 6));
 
+            // Try to pay with wrong token by not having the right one approved
             await expect(
                 token.connect(alice).requestTransferWithFee(
                     alice.address,
                     bob.address,
                     ethers.parseUnits("100", 10),
-                    feeToken.target, // Not accepted
-                    ethers.parseUnits("10", 10)
+                    ethers.parseUnits("10", 6)
                 )
-            ).to.be.revertedWithCustomError(token, "ERC20InvalidReceiver");
+            ).to.be.revertedWithCustomError(feeToken, "ERC20InsufficientAllowance");
         });
 
         it("Should handle withdrawal of ERC20 fee tokens", async function () {
-            const MockERC20 = await ethers.getContractFactory("MockERC20");
-            const feeToken = await MockERC20.deploy("Fee Token", "FEE", 18);
-            await feeToken.waitForDeployment();
-
             await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
-            await feeToken.mint(alice.address, ethers.parseUnits("100", 10));
+            await feeToken.mint(alice.address, ethers.parseUnits("100", 6));
 
-            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("10", 10), [feeToken.target]);
-            await feeToken.connect(alice).approve(token.target, ethers.parseUnits("10", 10));
+            await token.connect(rta).setFeeToken(feeToken.target);
+            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("10", 6));
+            await feeToken.connect(alice).approve(token.target, ethers.parseUnits("10", 6));
 
             await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 ethers.parseUnits("100", 10),
-                feeToken.target,
-                ethers.parseUnits("10", 10)
+                ethers.parseUnits("10", 6)
             );
 
             const rtaBalanceBefore = await feeToken.balanceOf(rta.address);
-            await token.connect(rta).withdrawFees(feeToken.target, ethers.parseUnits("10", 10), rta.address);
+            await token.connect(rta).withdrawFees(ethers.parseUnits("10", 6), rta.address);
             const rtaBalanceAfter = await feeToken.balanceOf(rta.address);
 
-            expect(rtaBalanceAfter - rtaBalanceBefore).to.equal(ethers.parseUnits("10", 10));
+            expect(rtaBalanceAfter - rtaBalanceBefore).to.equal(ethers.parseUnits("10", 6));
         });
 
         it("Should handle court order from/to same address", async function () {
@@ -305,47 +304,40 @@ describe("Deep Branch Coverage - Push to 90%+", function () {
         });
 
         it("Should handle ERC20 fee token withdrawal", async function () {
-            const MockERC20 = await ethers.getContractFactory("MockERC20");
-            const feeToken = await MockERC20.deploy("Fee Token", "FEE", 18);
-            await feeToken.waitForDeployment();
-
             await tokenUpgradeable.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
-            await feeToken.mint(alice.address, ethers.parseUnits("100", 10));
+            await feeToken.mint(alice.address, ethers.parseUnits("100", 6));
 
-            await tokenUpgradeable.connect(rta).setFeeParameters(0, ethers.parseUnits("10", 10), [feeToken.target]);
-            await feeToken.connect(alice).approve(tokenUpgradeable.target, ethers.parseUnits("10", 10));
+            await tokenUpgradeable.connect(rta).setFeeToken(feeToken.target);
+            await tokenUpgradeable.connect(rta).setFeeParameters(0, ethers.parseUnits("10", 6));
+            await feeToken.connect(alice).approve(tokenUpgradeable.target, ethers.parseUnits("10", 6));
 
             await tokenUpgradeable.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 ethers.parseUnits("100", 10),
-                feeToken.target,
-                ethers.parseUnits("10", 10)
+                ethers.parseUnits("10", 6)
             );
 
-            await tokenUpgradeable.connect(rta).withdrawFees(feeToken.target, ethers.parseUnits("10", 10), rta.address);
+            await tokenUpgradeable.connect(rta).withdrawFees(ethers.parseUnits("10", 6), rta.address);
 
-            expect(await feeToken.balanceOf(rta.address)).to.equal(ethers.parseUnits("10", 10));
+            expect(await feeToken.balanceOf(rta.address)).to.equal(ethers.parseUnits("10", 6));
         });
 
         it("Should handle rejected fee token", async function () {
-            const MockERC20 = await ethers.getContractFactory("MockERC20");
-            const feeToken = await MockERC20.deploy("Fee Token", "FEE", 18);
-            await feeToken.waitForDeployment();
-
             await tokenUpgradeable.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
 
-            await tokenUpgradeable.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 18), [ethers.ZeroAddress]);
+            await tokenUpgradeable.connect(rta).setFeeToken(feeToken.target);
+            await tokenUpgradeable.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 6));
 
+            // Try to request transfer without approving fee token
             await expect(
                 tokenUpgradeable.connect(alice).requestTransferWithFee(
                     alice.address,
                     bob.address,
                     ethers.parseUnits("100", 10),
-                    feeToken.target,
-                    ethers.parseUnits("10", 10)
+                    ethers.parseUnits("10", 6)
                 )
-            ).to.be.revertedWithCustomError(tokenUpgradeable, "ERC20InvalidReceiver");
+            ).to.be.revertedWithCustomError(feeToken, "ERC20InsufficientAllowance");
         });
 
         it("Should handle court order self-transfer", async function () {

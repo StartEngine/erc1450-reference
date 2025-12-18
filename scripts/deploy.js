@@ -43,14 +43,15 @@ async function main() {
     console.log("\n3. Verifying transfer agent lock...");
     console.log("  - Transfer agent locked: true (RTAProxy is a contract)");
 
-    // Configure initial fee parameters
+    // Configure initial fee parameters (single fee token design)
     console.log("\n4. Setting up initial fee configuration...");
+    console.log("  - NOTE: Fee token must be set separately using setFeeToken()");
     console.log("  - Preparing fee configuration transaction for multi-sig approval");
 
+    // Set fee parameters (type and value only - token set separately)
     const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [
-        1,                              // feeType: 1 = percentage
-        50,                             // feeValue: 50 basis points = 0.5%
-        [ethers.ZeroAddress]           // acceptedTokens: ETH only initially
+        1,   // feeType: 1 = percentage
+        50   // feeValue: 50 basis points = 0.5%
     ]);
 
     // Submit fee configuration to multi-sig
@@ -62,6 +63,7 @@ async function main() {
     const receipt = await tx.wait();
     console.log("  - Fee configuration submitted to multi-sig (Operation #0)");
     console.log("  - Requires 1 more signature to execute");
+    console.log("  - After approval, use setFeeToken(address) to set USDC or other ERC-20 fee token");
 
     // Display deployment summary
     console.log("\n========================================");

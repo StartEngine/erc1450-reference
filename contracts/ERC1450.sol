@@ -48,7 +48,6 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
         uint256 amount;
         address requestedBy;
         uint256 feePaid;
-        address feeToken;
         RequestStatus status;
         uint256 timestamp;
     }
@@ -56,10 +55,10 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
     mapping(uint256 => TransferRequest) public transferRequests;
 
     // Fee management
-    uint8 public feeType; // 0: flat, 1: percentage, 2: tiered
+    uint8 public feeType; // 0: flat, 1: percentage
     uint256 public feeValue; // Amount or basis points
-    address[] public acceptedFeeTokens;
-    mapping(address => uint256) public collectedFees;
+    address public feeToken; // Single ERC-20 token for fee payments (e.g., USDC)
+    uint256 public collectedFees;
 
     // Broker management
     mapping(address => bool) public approvedBrokers;
@@ -131,7 +130,7 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
         // Default fee configuration
         feeType = 0; // Flat fee
         feeValue = 0; // No fee initially
-        acceptedFeeTokens.push(address(0)); // Accept native token by default
+        feeToken = address(0); // No fee token set initially - RTA must configure
     }
 
     // ============ ERC-20 Metadata ============
@@ -576,9 +575,8 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
         address from,
         address to,
         uint256 amount,
-        address feeToken,
         uint256 feeAmount
-    ) external payable override nonReentrant returns (uint256 requestId) {
+    ) external override nonReentrant returns (uint256 requestId) {
         // Validate request
         if (from == address(0) || to == address(0)) {
             revert ERC20InvalidReceiver(address(0));
@@ -594,24 +592,13 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
             revert OwnableUnauthorizedAccount(msg.sender);
         }
 
-        // Validate fee payment
-        if (!_isAcceptedFeeToken(feeToken)) {
-            revert ERC20InvalidReceiver(feeToken);
-        }
+        // Validate fee token is configured
+        require(feeToken != address(0), "ERC1450: Fee token not configured");
 
         // Collect fee
         if (feeAmount > 0) {
-            if (feeToken == address(0)) {
-                // Native token payment
-                if (msg.value != feeAmount) {
-                    revert ERC20InsufficientBalance(msg.sender, msg.value, feeAmount);
-                }
-                collectedFees[address(0)] += feeAmount;
-            } else {
-                // ERC20 token payment
-                IERC20(feeToken).safeTransferFrom(msg.sender, address(this), feeAmount);
-                collectedFees[feeToken] += feeAmount;
-            }
+            IERC20(feeToken).safeTransferFrom(msg.sender, address(this), feeAmount);
+            collectedFees += feeAmount;
         }
 
         // Create request
@@ -622,7 +609,6 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
             amount: amount,
             requestedBy: msg.sender,
             feePaid: feeAmount,
-            feeToken: feeToken,
             status: RequestStatus.Requested,
             timestamp: block.timestamp
         });
@@ -680,14 +666,8 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
 
         // Handle fee refund if requested (CEI pattern: update state before external calls)
         if (refundFee && request.feePaid > 0) {
-            collectedFees[request.feeToken] -= request.feePaid;
-            if (request.feeToken == address(0)) {
-                // Refund native token
-                payable(request.requestedBy).transfer(request.feePaid);
-            } else {
-                // Refund ERC20 token
-                IERC20(request.feeToken).safeTransfer(request.requestedBy, request.feePaid);
-            }
+            collectedFees -= request.feePaid;
+            IERC20(feeToken).safeTransfer(request.requestedBy, request.feePaid);
         }
 
         emit TransferRejected(requestId, reasonCode, refundFee);
@@ -702,14 +682,8 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
     function getTransferFee(
         address, // from
         address, // to
-        uint256 amount,
-        address feeToken
+        uint256 amount
     ) external view override returns (uint256 feeAmount) {
-        // Check if the fee token is accepted
-        if (!_isAcceptedFeeToken(feeToken)) {
-            return 0;
-        }
-
         // Calculate fee based on fee type
         if (feeType == 0) {
             // Flat fee
@@ -718,51 +692,47 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
             // Percentage fee (in basis points)
             feeAmount = (amount * feeValue) / 10000;
         } else {
-            // Tiered or custom logic
+            // Unknown fee type - return flat fee as fallback
             feeAmount = feeValue;
         }
-
-        // In a real implementation, you might adjust fee based on the token
-        // For example, different amounts for different tokens based on their value
-        // This is a simplified version that returns the same fee for all accepted tokens
     }
 
-    function getAcceptedFeeTokens() external view override returns (address[] memory) {
-        return acceptedFeeTokens;
+    function getFeeToken() external view override returns (address) {
+        return feeToken;
+    }
+
+    function setFeeToken(address newFeeToken) external override onlyTransferAgent {
+        require(newFeeToken != address(0), "ERC1450: Invalid fee token");
+        address previousToken = feeToken;
+        feeToken = newFeeToken;
+        emit FeeTokenUpdated(previousToken, newFeeToken);
     }
 
     function setFeeParameters(
         uint8 newFeeType,
-        uint256 newFeeValue,
-        address[] calldata newAcceptedTokens
+        uint256 newFeeValue
     ) external override onlyTransferAgent {
+        require(newFeeType <= 1, "ERC1450: Invalid fee type (0=flat, 1=percentage)");
         feeType = newFeeType;
         feeValue = newFeeValue;
-        acceptedFeeTokens = newAcceptedTokens;
-
-        emit FeeParametersUpdated(newFeeType, newFeeValue, newAcceptedTokens);
+        emit FeeParametersUpdated(newFeeType, newFeeValue);
     }
 
     function withdrawFees(
-        address token,
         uint256 amount,
         address recipient
     ) external override onlyTransferAgent {
         require(recipient != address(0), "ERC1450: Invalid recipient");
+        require(feeToken != address(0), "ERC1450: Fee token not configured");
 
-        if (collectedFees[token] < amount) {
-            revert ERC20InsufficientBalance(address(this), collectedFees[token], amount);
+        if (collectedFees < amount) {
+            revert ERC20InsufficientBalance(address(this), collectedFees, amount);
         }
 
-        collectedFees[token] -= amount;
+        collectedFees -= amount;
+        IERC20(feeToken).safeTransfer(recipient, amount);
 
-        if (token == address(0)) {
-            payable(recipient).transfer(amount);
-        } else {
-            IERC20(token).safeTransfer(recipient, amount);
-        }
-
-        emit FeesWithdrawn(token, amount, recipient);
+        emit FeesWithdrawn(amount, recipient);
     }
 
     // ============ Broker Management ============
@@ -907,15 +877,6 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
         request.status = newStatus;
 
         emit RequestStatusChanged(requestId, oldStatus, newStatus, block.timestamp);
-    }
-
-    function _isAcceptedFeeToken(address token) internal view returns (bool) {
-        for (uint i = 0; i < acceptedFeeTokens.length; i++) {
-            if (acceptedFeeTokens[i] == token) {
-                return true;
-            }
-        }
-        return false;
     }
 
     // ============ Emergency Functions ============

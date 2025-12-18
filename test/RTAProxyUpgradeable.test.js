@@ -7,10 +7,10 @@ describe("RTAProxyUpgradeable Multi-Sig", function () {
     const REG_US_A = 0x0001; // Reg A
     const issuanceDate = Math.floor(Date.now() / 1000) - 86400 * 30; // 30 days ago
 
-    let RTAProxyUpgradeable, ERC1450Upgradeable;
-    let rtaProxy, token;
+    let RTAProxyUpgradeable, ERC1450Upgradeable, MockERC20;
+    let rtaProxy, token, feeToken;
     let owner, signer1, signer2, signer3, nonSigner, holder1;
-    let rtaProxyAddress, tokenAddress;
+    let rtaProxyAddress, tokenAddress, feeTokenAddress;
 
     beforeEach(async function () {
         // Get signers
@@ -19,6 +19,7 @@ describe("RTAProxyUpgradeable Multi-Sig", function () {
         // Get contract factories
         RTAProxyUpgradeable = await ethers.getContractFactory("RTAProxyUpgradeable");
         ERC1450Upgradeable = await ethers.getContractFactory("ERC1450Upgradeable");
+        MockERC20 = await ethers.getContractFactory("MockERC20");
 
         // Deploy RTAProxyUpgradeable with UUPS proxy
         rtaProxy = await upgrades.deployProxy(
@@ -37,6 +38,11 @@ describe("RTAProxyUpgradeable Multi-Sig", function () {
         );
         await token.waitForDeployment();
         tokenAddress = await token.getAddress();
+
+        // Deploy MockERC20 for fee token (6 decimals like USDC)
+        feeToken = await MockERC20.deploy("USD Coin", "USDC", 6);
+        await feeToken.waitForDeployment();
+        feeTokenAddress = await feeToken.getAddress();
     });
 
     describe("Deployment & Initialization", function () {
@@ -295,17 +301,26 @@ describe("RTAProxyUpgradeable Multi-Sig", function () {
         });
 
         it("Should set fee parameters through multi-sig", async function () {
+            // First set the fee token
+            const setFeeTokenData = token.interface.encodeFunctionData("setFeeToken", [
+                feeTokenAddress
+            ]);
+
+            await rtaProxy.connect(signer1).submitOperation(tokenAddress, setFeeTokenData, 0);
+            await rtaProxy.connect(signer2).confirmOperation(0);
+
+            // Then set the fee parameters
             const data = token.interface.encodeFunctionData("setFeeParameters", [
                 1, // percentage
-                100, // 1%
-                [ethers.ZeroAddress]
+                100 // 1%
             ]);
 
             await rtaProxy.connect(signer1).submitOperation(tokenAddress, data, 0);
-            await rtaProxy.connect(signer2).confirmOperation(0);
+            await rtaProxy.connect(signer2).confirmOperation(1);
 
             expect(await token.feeType()).to.equal(1);
             expect(await token.feeValue()).to.equal(100);
+            expect(await token.getFeeToken()).to.equal(feeTokenAddress);
         });
 
         it("Should manage brokers through multi-sig", async function () {

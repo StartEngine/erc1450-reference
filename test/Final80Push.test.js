@@ -10,6 +10,7 @@ describe("Final 80% Push - Error Paths", function () {
     let rtaProxy, rtaProxyUpgradeable;
     let owner, rta1, rta2, alice, bob, carol;
     let tokenAddress, tokenUpgradeableAddress;
+    let MockERC20, feeToken;
 
     async function submitAndConfirmOperation(proxy, target, data, signers) {
         const opId = await proxy.operationCount();
@@ -21,6 +22,11 @@ describe("Final 80% Push - Error Paths", function () {
 
     beforeEach(async function () {
         [owner, rta1, rta2, alice, bob, carol] = await ethers.getSigners();
+
+        // Deploy mock USDC for fee payments (6 decimals like real USDC)
+        MockERC20 = await ethers.getContractFactory("MockERC20");
+        feeToken = await MockERC20.deploy("Mock USDC", "USDC", 6);
+        await feeToken.waitForDeployment();
 
         const RTAProxy = await ethers.getContractFactory("RTAProxy");
         rtaProxy = await RTAProxy.deploy([rta1.address, rta2.address], 2);
@@ -123,24 +129,26 @@ describe("Final 80% Push - Error Paths", function () {
         });
 
         it("Should handle edge cases in fee management", async function () {
+            // Set fee token
+            const setFeeTokenData1 = token.interface.encodeFunctionData("setFeeToken", [
+                await feeToken.getAddress()
+            ]);
+            await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeTokenData1, [rta1, rta2]);
+
             // Set fee parameters multiple times with different configurations
             const setFee1 = token.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseUnits("0.005", 10), [ethers.ZeroAddress]
+                0, ethers.parseUnits("0.005", 6)
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, setFee1, [rta1, rta2]);
 
-            const MockERC20 = await ethers.getContractFactory("MockERC20");
-            const feeToken = await MockERC20.deploy("Fee", "FEE", 18);
-            await feeToken.waitForDeployment();
-
             const setFee2 = token.interface.encodeFunctionData("setFeeParameters", [
-                1, ethers.parseUnits("2", 10), [await feeToken.getAddress()]
+                1, 200 // 2% fee
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, setFee2, [rta1, rta2]);
 
-            // Reset to native only
+            // Reset to flat fee
             const setFee3 = token.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseUnits("0.01", 10), [ethers.ZeroAddress]
+                0, ethers.parseUnits("0.01", 6)
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, setFee3, [rta1, rta2]);
         });

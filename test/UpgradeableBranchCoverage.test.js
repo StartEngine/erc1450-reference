@@ -2,7 +2,7 @@ const { expect } = require("chai");
 const { ethers, upgrades } = require("hardhat");
 
 describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
-    let ERC1450Upgradeable, token, RTAProxyUpgradeable, rtaProxy;
+    let ERC1450Upgradeable, token, RTAProxyUpgradeable, rtaProxy, MockERC20, feeToken;
     let owner, issuer, rta, alice, bob, signer2, signer3, nonBroker;
 
     // Common regulation constants for testing
@@ -29,6 +29,11 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
             { kind: "uups" }
         );
         await token.waitForDeployment();
+
+        // Deploy MockERC20 for fee token
+        MockERC20 = await ethers.getContractFactory("MockERC20");
+        feeToken = await MockERC20.deploy("USD Coin", "USDC", 6);
+        await feeToken.waitForDeployment();
     });
 
     describe("ERC1450Upgradeable - Missing Branch Coverage", function () {
@@ -94,7 +99,12 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
         describe("requestTransferWithFee validations", function () {
             beforeEach(async function () {
                 await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
-                await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 18), [ethers.ZeroAddress]);
+                await token.connect(rta).setFeeToken(feeToken.target);
+                await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 6));
+
+                // Mint fee tokens to alice and approve
+                await feeToken.mint(alice.address, ethers.parseUnits("1000", 6));
+                await feeToken.connect(alice).approve(token.target, ethers.parseUnits("1000", 6));
             });
 
             it("Should revert when from address is zero", async function () {
@@ -103,9 +113,7 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
                         ethers.ZeroAddress,
                         bob.address,
                         ethers.parseUnits("100", 10),
-                        ethers.ZeroAddress,
-                        ethers.parseUnits("1", 10),
-                        { value: ethers.parseUnits("1", 10) }
+                        ethers.parseUnits("1", 6)
                     )
                 ).to.be.revertedWithCustomError(token, "ERC20InvalidReceiver");
             });
@@ -116,9 +124,7 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
                         alice.address,
                         ethers.ZeroAddress,
                         ethers.parseUnits("100", 10),
-                        ethers.ZeroAddress,
-                        ethers.parseUnits("1", 10),
-                        { value: ethers.parseUnits("1", 10) }
+                        ethers.parseUnits("1", 6)
                     )
                 ).to.be.revertedWithCustomError(token, "ERC20InvalidReceiver");
             });
@@ -129,49 +135,49 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
                         alice.address,
                         bob.address,
                         ethers.parseUnits("100", 10),
-                        ethers.ZeroAddress,
-                        ethers.parseUnits("1", 10),
-                        { value: ethers.parseUnits("1", 10) }
+                        ethers.parseUnits("1", 6)
                     )
                 ).to.be.revertedWithCustomError(token, "OwnableUnauthorizedAccount");
             });
 
-            it("Should revert when msg.value doesn't match feeAmount", async function () {
+            it("Should revert when fee token transfer fails due to insufficient allowance", async function () {
+                // Remove alice's approval
+                await feeToken.connect(alice).approve(token.target, 0);
+
                 await expect(
                     token.connect(alice).requestTransferWithFee(
                         alice.address,
                         bob.address,
                         ethers.parseUnits("100", 10),
-                        ethers.ZeroAddress,
-                        ethers.parseUnits("1", 10),
-                        { value: ethers.parseUnits("0.5", 10) }
+                        ethers.parseUnits("1", 6)
                     )
-                ).to.be.revertedWithCustomError(token, "ERC20InsufficientBalance");
+                ).to.be.reverted; // ERC20 will revert due to insufficient allowance
             });
 
             it("Should handle broker-initiated transfer", async function () {
                 await token.connect(rta).setBrokerStatus(bob.address, true);
 
+                // Mint fee tokens to bob and approve
+                await feeToken.mint(bob.address, ethers.parseUnits("1000", 6));
+                await feeToken.connect(bob).approve(token.target, ethers.parseUnits("1000", 6));
+
                 const tx = await token.connect(bob).requestTransferWithFee(
                     alice.address,
                     nonBroker.address,
                     ethers.parseUnits("100", 10),
-                    ethers.ZeroAddress,
-                    ethers.parseUnits("1", 10),
-                    { value: ethers.parseUnits("1", 10) }
+                    ethers.parseUnits("1", 6)
                 );
 
                 expect(tx).to.emit(token, "TransferRequested");
             });
 
             it("Should handle zero fee amount", async function () {
-                await token.connect(rta).setFeeParameters(0, 0, [ethers.ZeroAddress]);
+                await token.connect(rta).setFeeParameters(0, 0);
 
                 const tx = await token.connect(alice).requestTransferWithFee(
                     alice.address,
                     bob.address,
                     ethers.parseUnits("100", 10),
-                    ethers.ZeroAddress,
                     0
                 );
 
@@ -224,29 +230,26 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
         });
 
         describe("Additional fee and status handling", function () {
-            it("Should handle multiple fee tokens", async function () {
-                const MockERC20 = await ethers.getContractFactory("MockERC20");
-                const token1 = await MockERC20.deploy("Token1", "TK1", 18);
+            it("Should handle setting single fee token", async function () {
+                const MockERC20Local = await ethers.getContractFactory("MockERC20");
+                const token1 = await MockERC20Local.deploy("Token1", "TK1", 18);
                 await token1.waitForDeployment();
 
-                await token.connect(rta).setFeeParameters(
-                    0,
-                    ethers.parseUnits("1", 10),
-                    [ethers.ZeroAddress, token1.target]
-                );
+                await token.connect(rta).setFeeToken(token1.target);
+                await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 18));
 
-                const acceptedTokens = await token.getAcceptedFeeTokens();
-                expect(acceptedTokens.length).to.equal(2);
+                const currentFeeToken = await token.getFeeToken();
+                expect(currentFeeToken).to.equal(token1.target);
             });
 
             it("Should handle percentage fee calculation", async function () {
-                await token.connect(rta).setFeeParameters(1, 100, [ethers.ZeroAddress]); // 1% = 100 basis points
+                await token.connect(rta).setFeeToken(feeToken.target);
+                await token.connect(rta).setFeeParameters(1, 100); // 1% = 100 basis points
 
                 const fee = await token.getTransferFee(
                     alice.address,
                     bob.address,
-                    ethers.parseUnits("100", 10),
-                    ethers.ZeroAddress
+                    ethers.parseUnits("100", 10)
                 );
 
                 expect(fee).to.equal(ethers.parseUnits("1", 10));
@@ -254,13 +257,13 @@ describe("Upgradeable Contracts - Branch Coverage to 95%+", function () {
 
             it("Should update request status to different states", async function () {
                 await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
-                await token.connect(rta).setFeeParameters(0, 0, [ethers.ZeroAddress]);
+                await token.connect(rta).setFeeToken(feeToken.target);
+                await token.connect(rta).setFeeParameters(0, 0);
 
                 const tx = await token.connect(alice).requestTransferWithFee(
                     alice.address,
                     bob.address,
                     ethers.parseUnits("100", 10),
-                    ethers.ZeroAddress,
                     0
                 );
 

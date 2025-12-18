@@ -14,6 +14,7 @@ describe("Final Coverage Push - Reach 80%", function () {
     let rtaProxy, rtaProxyUpgradeable;
     let owner, rta1, rta2, alice, bob, carol, dave;
     let tokenAddress, tokenUpgradeableAddress;
+    let feeToken;
 
     async function submitAndConfirmOperation(proxy, target, data, signers) {
         const opId = await proxy.operationCount();
@@ -25,6 +26,11 @@ describe("Final Coverage Push - Reach 80%", function () {
 
     beforeEach(async function () {
         [owner, rta1, rta2, alice, bob, carol, dave] = await ethers.getSigners();
+
+        // Deploy MockERC20 for fee token (USDC-like with 6 decimals)
+        const MockERC20 = await ethers.getContractFactory("MockERC20");
+        feeToken = await MockERC20.deploy("USDC", "USDC", 6);
+        await feeToken.waitForDeployment();
 
         // Deploy RTAProxy
         const RTAProxy = await ethers.getContractFactory("RTAProxy");
@@ -101,23 +107,31 @@ describe("Final Coverage Push - Reach 80%", function () {
             const setBrokerData = token.interface.encodeFunctionData("setBrokerStatus", [bob.address, true]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, setBrokerData, [rta1, rta2]);
 
-            // Mint tokens to alice
+            // Mint fee tokens to bob (the broker who will pay the fee)
+            await feeToken.mint(bob.address, ethers.parseUnits("100", 6));
+
+            // Mint security tokens to alice
             const mintData = token.interface.encodeFunctionData("mint", [
                 alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate1
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, mintData, [rta1, rta2]);
 
-            // Set fees
+            // Set fee token to the ERC20 feeToken
+            const setFeeTokenData = token.interface.encodeFunctionData("setFeeToken", [await feeToken.getAddress()]);
+            await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeTokenData, [rta1, rta2]);
+
+            // Set fee parameters
             const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseUnits("0.01", 10), [ethers.ZeroAddress]
+                0, ethers.parseUnits("10", 6)
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeData, [rta1, rta2]);
 
-            // Broker initiates transfer for alice
+            // Bob approves the fee token
+            await feeToken.connect(bob).approve(tokenAddress, ethers.parseUnits("10", 6));
+
+            // Broker initiates transfer for alice (4 args)
             await token.connect(bob).requestTransferWithFee(
-                alice.address, carol.address, ethers.parseUnits("200", 10),
-                ethers.ZeroAddress, ethers.parseUnits("0.01", 10),
-                { value: ethers.parseUnits("0.01", 10) }
+                alice.address, carol.address, ethers.parseUnits("200", 10), ethers.parseUnits("10", 6)
             );
 
             // Process the request
@@ -128,36 +142,35 @@ describe("Final Coverage Push - Reach 80%", function () {
         });
 
         it("Should handle fee token approval edge case", async function () {
-            // Deploy mock ERC20
-            const MockERC20 = await ethers.getContractFactory("MockERC20");
-            const feeToken = await MockERC20.deploy("Fee Token", "FEE", 18);
-            await feeToken.waitForDeployment();
+            // Mint fee tokens to alice
+            await feeToken.mint(alice.address, ethers.parseUnits("100", 6));
 
-            // Mint tokens
-            await feeToken.mint(alice.address, ethers.parseUnits("100", 10));
+            // Mint security tokens to alice
             const mintData = token.interface.encodeFunctionData("mint", [
                 alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate1
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, mintData, [rta1, rta2]);
 
-            // Set fee with ERC20
+            // Set fee token to the ERC20 feeToken
+            const setFeeTokenData = token.interface.encodeFunctionData("setFeeToken", [await feeToken.getAddress()]);
+            await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeTokenData, [rta1, rta2]);
+
+            // Set fee parameters
             const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseUnits("5", 10), [await feeToken.getAddress()]
+                0, ethers.parseUnits("5", 6)
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeData, [rta1, rta2]);
 
             // Approve exact amount
-            await feeToken.connect(alice).approve(tokenAddress, ethers.parseUnits("5", 10));
+            await feeToken.connect(alice).approve(tokenAddress, ethers.parseUnits("5", 6));
 
-            // Request with exact fee amount
+            // Request with exact fee amount (4 args)
             await token.connect(alice).requestTransferWithFee(
-                alice.address, bob.address, ethers.parseUnits("100", 10),
-                await feeToken.getAddress(), ethers.parseUnits("5", 10),
-                { value: 0 }
+                alice.address, bob.address, ethers.parseUnits("100", 10), ethers.parseUnits("5", 6)
             );
 
             // Verify fee token was transferred
-            expect(await feeToken.balanceOf(tokenAddress)).to.equal(ethers.parseUnits("5", 10));
+            expect(await feeToken.balanceOf(tokenAddress)).to.equal(ethers.parseUnits("5", 6));
         });
     });
 
@@ -314,15 +327,22 @@ describe("Final Coverage Push - Reach 80%", function () {
         });
 
         it("Should handle fee parameter updates", async function () {
+            // Mint fee tokens to alice
+            await feeToken.mint(alice.address, ethers.parseUnits("100", 6));
+
+            // Set fee token to the ERC20 feeToken
+            const setFeeTokenData = token.interface.encodeFunctionData("setFeeToken", [await feeToken.getAddress()]);
+            await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeTokenData, [rta1, rta2]);
+
             // Set initial fees
             const setFeeData1 = token.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseUnits("0.01", 10), [ethers.ZeroAddress]
+                0, ethers.parseUnits("10", 6)
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeData1, [rta1, rta2]);
 
             // Update fees
             const setFeeData2 = token.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseUnits("0.02", 10), [ethers.ZeroAddress]
+                0, ethers.parseUnits("20", 6)
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeData2, [rta1, rta2]);
 
@@ -332,14 +352,15 @@ describe("Final Coverage Push - Reach 80%", function () {
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, mintData, [rta1, rta2]);
 
+            // Approve the fee amount
+            await feeToken.connect(alice).approve(tokenAddress, ethers.parseUnits("20", 6));
+
             await token.connect(alice).requestTransferWithFee(
-                alice.address, bob.address, ethers.parseUnits("100", 10),
-                ethers.ZeroAddress, ethers.parseUnits("0.02", 10),
-                { value: ethers.parseUnits("0.02", 10) }
+                alice.address, bob.address, ethers.parseUnits("100", 10), ethers.parseUnits("20", 6)
             );
 
             // Successful request creation verifies the fee was accepted
-            expect(await ethers.provider.getBalance(tokenAddress)).to.be.gte(ethers.parseUnits("0.02", 10));
+            expect(await feeToken.balanceOf(tokenAddress)).to.equal(ethers.parseUnits("20", 6));
         });
     });
 });

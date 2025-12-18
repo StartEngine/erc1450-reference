@@ -35,7 +35,7 @@ describe("Branch Coverage Push to 90%", function () {
         );
         await rtaProxy.waitForDeployment();
 
-        feeToken = await MockERC20.deploy("Fee Token", "FEE", 18);
+        feeToken = await MockERC20.deploy("Fee Token", "FEE", 6);
         await feeToken.waitForDeployment();
     });
 
@@ -306,11 +306,15 @@ describe("Branch Coverage Push to 90%", function () {
 
         beforeEach(async function () {
             await token.connect(rta).mint(alice.address, 1000, REG_US_A, issuanceDate);
+
+            // Set up fee token
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+            await token.connect(rta).setFeeParameters(0, 0);
+
             const tx = await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 100,
-                ethers.ZeroAddress,
                 0
             );
             const receipt = await tx.wait();
@@ -362,13 +366,18 @@ describe("Branch Coverage Push to 90%", function () {
         });
 
         it("Should reject without refund when refundFee is false", async function () {
+            // Set up ERC20 fee token and mint/approve fee tokens
+            await feeToken.mint(alice.address, ethers.parseUnits("100", 6));
+            await feeToken.connect(alice).approve(await token.getAddress(), ethers.parseUnits("100", 6));
+
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 6));
+
             const tx = await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 100,
-                ethers.ZeroAddress,
-                ethers.parseEther("0.1"),
-                { value: ethers.parseEther("0.1") }
+                ethers.parseUnits("1", 6)
             );
             const receipt = await tx.wait();
             const event = receipt.logs.find(log => {
@@ -383,43 +392,20 @@ describe("Branch Coverage Push to 90%", function () {
             expect(request.status).to.equal(3); // Rejected
         });
 
-        it("Should reject with native token refund", async function () {
-            const initialBalance = await ethers.provider.getBalance(alice.address);
-
-            const tx = await token.connect(alice).requestTransferWithFee(
-                alice.address,
-                bob.address,
-                100,
-                ethers.ZeroAddress,
-                ethers.parseEther("0.1"),
-                { value: ethers.parseEther("0.1") }
-            );
-            const receipt = await tx.wait();
-            const event = receipt.logs.find(log => {
-                try {
-                    return token.interface.parseLog(log)?.name === "TransferRequested";
-                } catch { return false; }
-            });
-            requestId = token.interface.parseLog(event).args.requestId;
-
-            await token.connect(rta).rejectTransferRequest(requestId, 1, true);
-
-            const finalBalance = await ethers.provider.getBalance(alice.address);
-            expect(finalBalance).to.be.gt(initialBalance - ethers.parseEther("0.2"));
-        });
-
         it("Should reject with ERC20 token refund", async function () {
-            await feeToken.mint(alice.address, ethers.parseEther("100"));
-            await feeToken.connect(alice).approve(await token.getAddress(), ethers.parseEther("100"));
+            // Set up ERC20 fee token and mint/approve fee tokens
+            const initialBalance = ethers.parseUnits("100", 6);
+            await feeToken.mint(alice.address, initialBalance);
+            await feeToken.connect(alice).approve(await token.getAddress(), initialBalance);
 
-            await token.connect(rta).setFeeParameters(0, 0, [await feeToken.getAddress()]);
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 6));
 
             const tx = await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 100,
-                await feeToken.getAddress(),
-                ethers.parseEther("1")
+                ethers.parseUnits("1", 6)
             );
             const receipt = await tx.wait();
             const event = receipt.logs.find(log => {
@@ -431,15 +417,20 @@ describe("Branch Coverage Push to 90%", function () {
 
             await token.connect(rta).rejectTransferRequest(requestId, 1, true);
 
-            expect(await feeToken.balanceOf(alice.address)).to.equal(ethers.parseEther("100"));
+            const finalBalance = await feeToken.balanceOf(alice.address);
+            expect(finalBalance).to.equal(initialBalance);
         });
 
         it("Should handle rejection with refund but zero fee paid", async function () {
+            // Set up fee token even for zero fee
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+            await token.connect(rta).setFeeParameters(0, 0);
+
+
             const tx = await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 100,
-                ethers.ZeroAddress,
                 0
             );
             const receipt = await tx.wait();
@@ -459,52 +450,40 @@ describe("Branch Coverage Push to 90%", function () {
     describe("ERC1450 - withdrawFees validation (lines 719-739)", function () {
         it("Should revert withdrawFees with zero recipient", async function () {
             await expect(
-                token.connect(rta).withdrawFees(ethers.ZeroAddress, 100, ethers.ZeroAddress)
+                token.connect(rta).withdrawFees(100, ethers.ZeroAddress)
             ).to.be.revertedWith("ERC1450: Invalid recipient");
         });
 
         it("Should revert withdrawFees when insufficient fees", async function () {
+            // Set up fee token first
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+
             await expect(
-                token.connect(rta).withdrawFees(ethers.ZeroAddress, ethers.parseEther("100"), alice.address)
+                token.connect(rta).withdrawFees(ethers.parseEther("100"), alice.address)
             ).to.be.revertedWithCustomError(token, "ERC20InsufficientBalance");
-        });
-
-        it("Should successfully withdraw native token fees", async function () {
-            await token.connect(rta).mint(alice.address, 1000, REG_US_A, issuanceDate);
-            await token.connect(alice).requestTransferWithFee(
-                alice.address,
-                bob.address,
-                100,
-                ethers.ZeroAddress,
-                ethers.parseEther("0.1"),
-                { value: ethers.parseEther("0.1") }
-            );
-
-            const initialBalance = await ethers.provider.getBalance(charlie.address);
-            await token.connect(rta).withdrawFees(ethers.ZeroAddress, ethers.parseEther("0.1"), charlie.address);
-            const finalBalance = await ethers.provider.getBalance(charlie.address);
-
-            expect(finalBalance - initialBalance).to.equal(ethers.parseEther("0.1"));
         });
 
         it("Should successfully withdraw ERC20 token fees", async function () {
             await token.connect(rta).mint(alice.address, 1000, REG_US_A, issuanceDate);
-            await feeToken.mint(alice.address, ethers.parseEther("100"));
-            await feeToken.connect(alice).approve(await token.getAddress(), ethers.parseEther("100"));
 
-            await token.connect(rta).setFeeParameters(0, 0, [await feeToken.getAddress()]);
+            // Set up ERC20 fee token and mint/approve fee tokens
+            await feeToken.mint(alice.address, ethers.parseUnits("100", 6));
+            await feeToken.connect(alice).approve(await token.getAddress(), ethers.parseUnits("100", 6));
+
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 6));
 
             await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 100,
-                await feeToken.getAddress(),
-                ethers.parseEther("1")
+                ethers.parseUnits("1", 6)
             );
 
-            await token.connect(rta).withdrawFees(await feeToken.getAddress(), ethers.parseEther("1"), charlie.address);
-            expect(await feeToken.balanceOf(charlie.address)).to.equal(ethers.parseEther("1"));
+            await token.connect(rta).withdrawFees(ethers.parseUnits("1", 6), charlie.address);
+            expect(await feeToken.balanceOf(charlie.address)).to.equal(ethers.parseUnits("1", 6));
         });
+
     });
 
     describe("ERC1450 - _transferBatch batch not found (line 866)", function () {
@@ -605,36 +584,35 @@ describe("Branch Coverage Push to 90%", function () {
     });
 
     describe("ERC1450 - getTransferFee tiered logic (lines 686-701)", function () {
-        it("Should return 0 for unaccepted fee token", async function () {
+        it("Should return 0 when no fee token is set", async function () {
             const fee = await token.getTransferFee(
                 alice.address,
                 bob.address,
-                1000,
-                charlie.address
+                1000
             );
             expect(fee).to.equal(0);
         });
 
         it("Should calculate percentage fee", async function () {
-            await token.connect(rta).setFeeParameters(1, 100, [ethers.ZeroAddress]); // 1% fee
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+            await token.connect(rta).setFeeParameters(1, 100); // 1% fee
 
             const fee = await token.getTransferFee(
                 alice.address,
                 bob.address,
-                10000,
-                ethers.ZeroAddress
+                10000
             );
             expect(fee).to.equal(100);
         });
 
-        it("Should return feeValue for tiered/custom fee type", async function () {
-            await token.connect(rta).setFeeParameters(2, 500, [ethers.ZeroAddress]); // Custom type
+        it("Should return flat fee correctly", async function () {
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+            await token.connect(rta).setFeeParameters(0, 500); // Flat fee type
 
             const fee = await token.getTransferFee(
                 alice.address,
                 bob.address,
-                10000,
-                ethers.ZeroAddress
+                10000
             );
             expect(fee).to.equal(500);
         });
@@ -645,58 +623,73 @@ describe("Branch Coverage Push to 90%", function () {
             await token.connect(rta).mint(alice.address, 1000, REG_US_A, issuanceDate);
         });
 
-        it("Should revert when fee token not accepted", async function () {
+        it("Should revert when insufficient ERC20 fee tokens", async function () {
+            // Set up fee token with insufficient balance
+            await feeToken.mint(alice.address, ethers.parseUnits("0.5", 6));
+            await feeToken.connect(alice).approve(await token.getAddress(), ethers.parseUnits("1", 6));
+
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 6));
+
             await expect(
                 token.connect(alice).requestTransferWithFee(
                     alice.address,
                     bob.address,
                     100,
-                    charlie.address,
-                    100
+                    ethers.parseUnits("1", 6)
                 )
-            ).to.be.revertedWithCustomError(token, "ERC20InvalidReceiver");
+            ).to.be.revertedWithCustomError(feeToken, "ERC20InsufficientBalance");
         });
 
         it("Should allow approved broker to request transfer", async function () {
             await token.connect(rta).setBrokerStatus(broker.address, true);
 
+            // Set up fee token for broker request
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+            await token.connect(rta).setFeeParameters(0, 0);
+
             await token.connect(broker).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 100,
-                ethers.ZeroAddress,
                 0
             );
         });
 
-        it("Should revert when native fee doesn't match msg.value", async function () {
+        it("Should revert when ERC20 fee approval is insufficient", async function () {
+            // Set up fee token with insufficient approval
+            await feeToken.mint(alice.address, ethers.parseUnits("10", 6));
+            await feeToken.connect(alice).approve(await token.getAddress(), ethers.parseUnits("0.5", 6));
+
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 6));
+
             await expect(
                 token.connect(alice).requestTransferWithFee(
                     alice.address,
                     bob.address,
                     100,
-                    ethers.ZeroAddress,
-                    ethers.parseEther("0.1"),
-                    { value: ethers.parseEther("0.05") }
+                    ethers.parseUnits("1", 6)
                 )
-            ).to.be.revertedWithCustomError(token, "ERC20InsufficientBalance");
+            ).to.be.revertedWithCustomError(feeToken, "ERC20InsufficientAllowance");
         });
 
         it("Should collect ERC20 fee correctly", async function () {
-            await feeToken.mint(alice.address, ethers.parseEther("100"));
-            await feeToken.connect(alice).approve(await token.getAddress(), ethers.parseEther("100"));
+            await feeToken.mint(alice.address, ethers.parseUnits("100", 6));
+            await feeToken.connect(alice).approve(await token.getAddress(), ethers.parseUnits("100", 6));
 
-            await token.connect(rta).setFeeParameters(0, 0, [await feeToken.getAddress()]);
+            // Set feeToken and fee parameters
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("5", 6));
 
             await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 100,
-                await feeToken.getAddress(),
-                ethers.parseEther("5")
+                ethers.parseUnits("5", 6)
             );
 
-            expect(await token.collectedFees(await feeToken.getAddress())).to.equal(ethers.parseEther("5"));
+            expect(await token.collectedFees()).to.equal(ethers.parseUnits("5", 6));
         });
     });
 
@@ -868,7 +861,7 @@ describe("Additional ERC1450 Branch Coverage", function () {
         );
         await rtaProxy.waitForDeployment();
 
-        feeToken = await MockERC20.deploy("Fee Token", "FEE", 18);
+        feeToken = await MockERC20.deploy("Fee Token", "FEE", 6);
         await feeToken.waitForDeployment();
     });
 
@@ -962,11 +955,15 @@ describe("Additional ERC1450 Branch Coverage", function () {
 
         beforeEach(async function () {
             await token.connect(rta).mint(alice.address, 1000, REG_US_A, issuanceDate);
+
+            // Set up fee token (use feeToken ERC20)
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+            await token.connect(rta).setFeeParameters(0, 0);
+
             const tx = await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 100,
-                ethers.ZeroAddress,
                 0
             );
             const receipt = await tx.wait();
@@ -996,20 +993,23 @@ describe("Additional ERC1450 Branch Coverage", function () {
 
     describe("Fee calculation edge cases", function () {
         it("Should return flat fee correctly", async function () {
-            await token.connect(rta).setFeeParameters(0, 1000, [ethers.ZeroAddress]);
-            const fee = await token.getTransferFee(alice.address, bob.address, 10000, ethers.ZeroAddress);
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+            await token.connect(rta).setFeeParameters(0, 1000);
+            const fee = await token.getTransferFee(alice.address, bob.address, 10000);
             expect(fee).to.equal(1000);
         });
 
         it("Should calculate percentage fee correctly", async function () {
-            await token.connect(rta).setFeeParameters(1, 500, [ethers.ZeroAddress]); // 5%
-            const fee = await token.getTransferFee(alice.address, bob.address, 10000, ethers.ZeroAddress);
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+            await token.connect(rta).setFeeParameters(1, 500); // 5%
+            const fee = await token.getTransferFee(alice.address, bob.address, 10000);
             expect(fee).to.equal(500); // 5% of 10000
         });
 
-        it("Should return feeValue for tiered type", async function () {
-            await token.connect(rta).setFeeParameters(2, 750, [ethers.ZeroAddress]);
-            const fee = await token.getTransferFee(alice.address, bob.address, 10000, ethers.ZeroAddress);
+        it("Should return flat fee value correctly", async function () {
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+            await token.connect(rta).setFeeParameters(0, 750);
+            const fee = await token.getTransferFee(alice.address, bob.address, 10000);
             expect(fee).to.equal(750);
         });
     });
@@ -1099,7 +1099,7 @@ describe("ERC1450Upgradeable Branch Coverage", function () {
         );
         await token.waitForDeployment();
 
-        feeToken = await MockERC20.deploy("Fee Token", "FEE", 18);
+        feeToken = await MockERC20.deploy("Fee Token", "FEE", 6);
         await feeToken.waitForDeployment();
     });
 
@@ -1267,29 +1267,40 @@ describe("ERC1450Upgradeable Branch Coverage", function () {
             await token.connect(rta).mint(alice.address, 1000, REG_US_A, issuanceDate);
         });
 
-        it("Should revert with unaccepted fee token", async function () {
+        it("Should revert when insufficient ERC20 fee tokens", async function () {
+            // Set up fee token with insufficient balance
+            await feeToken.mint(alice.address, ethers.parseUnits("0.5", 6));
+            await feeToken.connect(alice).approve(await token.getAddress(), ethers.parseUnits("1", 6));
+
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 6));
+
             await expect(
                 token.connect(alice).requestTransferWithFee(
                     alice.address,
                     bob.address,
                     100,
-                    charlie.address,
-                    100
+                    ethers.parseUnits("1", 6)
                 )
-            ).to.be.revertedWithCustomError(token, "ERC20InvalidReceiver");
+            ).to.be.revertedWithCustomError(feeToken, "ERC20InsufficientBalance");
         });
 
-        it("Should revert when msg.value doesn't match feeAmount", async function () {
+        it("Should revert when ERC20 fee approval is insufficient", async function () {
+            // Set up fee token with insufficient approval
+            await feeToken.mint(alice.address, ethers.parseUnits("10", 6));
+            await feeToken.connect(alice).approve(await token.getAddress(), ethers.parseUnits("0.5", 6));
+
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 6));
+
             await expect(
                 token.connect(alice).requestTransferWithFee(
                     alice.address,
                     bob.address,
                     100,
-                    ethers.ZeroAddress,
-                    ethers.parseEther("0.1"),
-                    { value: ethers.parseEther("0.05") }
+                    ethers.parseUnits("1", 6)
                 )
-            ).to.be.revertedWithCustomError(token, "ERC20InsufficientBalance");
+            ).to.be.revertedWithCustomError(feeToken, "ERC20InsufficientAllowance");
         });
     });
 
@@ -1298,11 +1309,15 @@ describe("ERC1450Upgradeable Branch Coverage", function () {
 
         beforeEach(async function () {
             await token.connect(rta).mint(alice.address, 1000, REG_US_A, issuanceDate);
+
+            // Set up fee token
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+            await token.connect(rta).setFeeParameters(0, 0);
+
             const tx = await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 100,
-                ethers.ZeroAddress,
                 0
             );
             const receipt = await tx.wait();
@@ -1336,17 +1351,18 @@ describe("ERC1450Upgradeable Branch Coverage", function () {
         });
 
         it("Should refund ERC20 fees", async function () {
-            await feeToken.mint(alice.address, ethers.parseEther("100"));
-            await feeToken.connect(alice).approve(await token.getAddress(), ethers.parseEther("100"));
+            await feeToken.mint(alice.address, ethers.parseUnits("100", 6));
+            await feeToken.connect(alice).approve(await token.getAddress(), ethers.parseUnits("100", 6));
 
-            await token.connect(rta).setFeeParameters(0, 0, [await feeToken.getAddress()]);
+            // Set feeToken and fee parameters
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("5", 6));
 
             const tx = await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 100,
-                await feeToken.getAddress(),
-                ethers.parseEther("5")
+                ethers.parseUnits("5", 6)
             );
             const receipt = await tx.wait();
             const event = receipt.logs.find(log => {
@@ -1357,14 +1373,17 @@ describe("ERC1450Upgradeable Branch Coverage", function () {
             requestId = token.interface.parseLog(event).args.requestId;
 
             await token.connect(rta).rejectTransferRequest(requestId, 1, true);
-            expect(await feeToken.balanceOf(alice.address)).to.equal(ethers.parseEther("100"));
+            expect(await feeToken.balanceOf(alice.address)).to.equal(ethers.parseUnits("100", 6));
         });
     });
 
     describe("withdrawFees edge cases (lines 736-756)", function () {
         it("Should revert with insufficient fees", async function () {
+            // Set up fee token first
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+
             await expect(
-                token.connect(rta).withdrawFees(ethers.ZeroAddress, 100, alice.address)
+                token.connect(rta).withdrawFees(100, alice.address)
             ).to.be.revertedWithCustomError(token, "ERC20InsufficientBalance");
         });
     });
@@ -1427,11 +1446,15 @@ describe("ERC1450Upgradeable Branch Coverage", function () {
 
         it("Should allow broker to request transfer", async function () {
             await token.connect(rta).setBrokerStatus(broker.address, true);
+
+            // Set up fee token
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+            await token.connect(rta).setFeeParameters(0, 0);
+
             await token.connect(broker).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 100,
-                ethers.ZeroAddress,
                 0
             );
         });
@@ -1474,11 +1497,14 @@ describe("ERC1450Upgradeable Branch Coverage", function () {
         });
 
         it("Should handle processTransferRequest with already approved status", async function () {
+            // Set up fee token
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+            await token.connect(rta).setFeeParameters(0, 0);
+
             const tx = await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 100,
-                ethers.ZeroAddress,
                 0
             );
             const receipt = await tx.wait();
@@ -1499,38 +1525,43 @@ describe("ERC1450Upgradeable Branch Coverage", function () {
         });
 
         it("Should handle fee calculation types", async function () {
+            // Set feeToken first
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+
             // Flat fee
-            await token.connect(rta).setFeeParameters(0, 500, [ethers.ZeroAddress]);
-            let fee = await token.getTransferFee(alice.address, bob.address, 1000, ethers.ZeroAddress);
+            await token.connect(rta).setFeeParameters(0, 500);
+            let fee = await token.getTransferFee(alice.address, bob.address, 1000);
             expect(fee).to.equal(500);
 
             // Percentage fee
-            await token.connect(rta).setFeeParameters(1, 1000, [ethers.ZeroAddress]); // 10%
-            fee = await token.getTransferFee(alice.address, bob.address, 10000, ethers.ZeroAddress);
+            await token.connect(rta).setFeeParameters(1, 1000); // 10%
+            fee = await token.getTransferFee(alice.address, bob.address, 10000);
             expect(fee).to.equal(1000);
 
-            // Tiered/custom fee
-            await token.connect(rta).setFeeParameters(2, 750, [ethers.ZeroAddress]);
-            fee = await token.getTransferFee(alice.address, bob.address, 10000, ethers.ZeroAddress);
+            // Flat fee again with different value
+            await token.connect(rta).setFeeParameters(0, 750);
+            fee = await token.getTransferFee(alice.address, bob.address, 10000);
             expect(fee).to.equal(750);
         });
 
-        it("Should withdraw native fees", async function () {
-            // Create a transfer request with native fee
+        it("Should withdraw ERC20 fees", async function () {
+            // Set up ERC20 fee token and mint/approve fee tokens
+            await feeToken.mint(alice.address, ethers.parseUnits("100", 6));
+            await feeToken.connect(alice).approve(await token.getAddress(), ethers.parseUnits("100", 6));
+
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 6));
+
+            // Create a transfer request with ERC20 fee
             await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 100,
-                ethers.ZeroAddress,
-                ethers.parseEther("0.1"),
-                { value: ethers.parseEther("0.1") }
+                ethers.parseUnits("1", 6)
             );
 
-            const initialBalance = await ethers.provider.getBalance(charlie.address);
-            await token.connect(rta).withdrawFees(ethers.ZeroAddress, ethers.parseEther("0.1"), charlie.address);
-            const finalBalance = await ethers.provider.getBalance(charlie.address);
-
-            expect(finalBalance - initialBalance).to.equal(ethers.parseEther("0.1"));
+            await token.connect(rta).withdrawFees(ethers.parseUnits("1", 6), charlie.address);
+            expect(await feeToken.balanceOf(charlie.address)).to.equal(ethers.parseUnits("1", 6));
         });
 
         it("Should handle recoverToken for ETH", async function () {

@@ -2,8 +2,8 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("ERC1450 Security Token", function () {
-    let ERC1450, RTAProxy, ERC1450Constants;
-    let token, rtaProxy;
+    let ERC1450, RTAProxy, ERC1450Constants, MockERC20;
+    let token, rtaProxy, feeToken;
     let owner, rta, issuer, alice, bob, charlie, broker;
     let signers;
 
@@ -19,6 +19,11 @@ describe("ERC1450 Security Token", function () {
         ERC1450 = await ethers.getContractFactory("ERC1450");
         RTAProxy = await ethers.getContractFactory("RTAProxy");
         ERC1450Constants = await ethers.getContractFactory("ERC1450Constants");
+        MockERC20 = await ethers.getContractFactory("MockERC20");
+
+        // Deploy mock USDC for fee payments (6 decimals like real USDC)
+        feeToken = await MockERC20.deploy("Mock USDC", "USDC", 6);
+        await feeToken.waitForDeployment();
 
         // Deploy token
         token = await ERC1450.deploy(
@@ -165,22 +170,26 @@ describe("ERC1450 Security Token", function () {
         beforeEach(async function () {
             await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
 
-            // Set up fee parameters (1% fee, accept ETH)
-            await token.connect(rta).setFeeParameters(1, 100, [ethers.ZeroAddress]);
+            // Set up fee token and parameters (1% fee)
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+            await token.connect(rta).setFeeParameters(1, 100);
+
+            // Mint fee tokens to alice and approve
+            const feeTokenAddress = await feeToken.getAddress();
+            await feeToken.mint(alice.address, ethers.parseUnits("1000", 6));
+            await feeToken.connect(alice).approve(await token.getAddress(), ethers.parseUnits("1000", 6));
         });
 
         it("Should create transfer request from token holder", async function () {
             const amount = ethers.parseUnits("100", 10);
-            const feeAmount = ethers.parseUnits("1", 18);
+            const feeAmount = ethers.parseUnits("1", 6); // 1 USDC
 
             await expect(
                 token.connect(alice).requestTransferWithFee(
                     alice.address,
                     bob.address,
                     amount,
-                    ethers.ZeroAddress,
-                    feeAmount,
-                    { value: feeAmount }
+                    feeAmount
                 )
             ).to.emit(token, "TransferRequested")
              .withArgs(1, alice.address, bob.address, amount, feeAmount, alice.address);
@@ -189,17 +198,19 @@ describe("ERC1450 Security Token", function () {
         it("Should allow approved broker to request on behalf of holder", async function () {
             await token.connect(rta).setBrokerStatus(broker.address, true);
 
+            // Mint fee tokens to broker and approve
+            await feeToken.mint(broker.address, ethers.parseUnits("100", 6));
+            await feeToken.connect(broker).approve(await token.getAddress(), ethers.parseUnits("100", 6));
+
             const amount = ethers.parseUnits("100", 10);
-            const feeAmount = ethers.parseUnits("1", 18);
+            const feeAmount = ethers.parseUnits("1", 6);
 
             await expect(
                 token.connect(broker).requestTransferWithFee(
                     alice.address,
                     bob.address,
                     amount,
-                    ethers.ZeroAddress,
-                    feeAmount,
-                    { value: feeAmount }
+                    feeAmount
                 )
             ).to.emit(token, "TransferRequested");
         });
@@ -207,12 +218,11 @@ describe("ERC1450 Security Token", function () {
         it("Should process approved transfer request", async function () {
             const amount = ethers.parseUnits("100", 10);
 
-            // Create request
+            // Create request with zero fee
             await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 amount,
-                ethers.ZeroAddress,
                 0
             );
 
@@ -227,16 +237,14 @@ describe("ERC1450 Security Token", function () {
 
         it("Should reject transfer request with reason code", async function () {
             const amount = ethers.parseUnits("100", 10);
-            const feeAmount = ethers.parseUnits("1", 18);
+            const feeAmount = ethers.parseUnits("1", 6);
 
             // Create request with fee
             await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 amount,
-                ethers.ZeroAddress,
-                feeAmount,
-                { value: feeAmount }
+                feeAmount
             );
 
             // Reject with refund
@@ -247,30 +255,33 @@ describe("ERC1450 Security Token", function () {
     });
 
     describe("Fee Management", function () {
+        beforeEach(async function () {
+            // Set up fee token
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+        });
+
         it("Should calculate flat fee correctly", async function () {
-            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("10", 18), [ethers.ZeroAddress]);
+            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("10", 6)); // 10 USDC flat fee
 
             const feeAmount = await token.getTransferFee(
                 alice.address,
                 bob.address,
-                ethers.parseUnits("1000", 10),
-                ethers.ZeroAddress  // Native token
+                ethers.parseUnits("1000", 10)
             );
 
-            expect(feeAmount).to.equal(ethers.parseUnits("10", 18));
+            expect(feeAmount).to.equal(ethers.parseUnits("10", 6));
 
-            const tokens = await token.getAcceptedFeeTokens();
-            expect(tokens[0]).to.equal(ethers.ZeroAddress);
+            // Verify fee token is set correctly
+            expect(await token.getFeeToken()).to.equal(await feeToken.getAddress());
         });
 
         it("Should calculate percentage fee correctly", async function () {
-            await token.connect(rta).setFeeParameters(1, 250, [ethers.ZeroAddress]); // 2.5%
+            await token.connect(rta).setFeeParameters(1, 250); // 2.5%
 
             const feeAmount = await token.getTransferFee(
                 alice.address,
                 bob.address,
-                ethers.parseUnits("1000", 10),
-                ethers.ZeroAddress  // Native token
+                ethers.parseUnits("1000", 10)
             );
 
             expect(feeAmount).to.equal(ethers.parseUnits("25", 10));
@@ -278,28 +289,31 @@ describe("ERC1450 Security Token", function () {
 
         it("Should allow RTA to withdraw fees", async function () {
             await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
+            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 6)); // 1 USDC flat fee
+
+            // Mint fee tokens to alice and approve
+            await feeToken.mint(alice.address, ethers.parseUnits("100", 6));
+            await feeToken.connect(alice).approve(await token.getAddress(), ethers.parseUnits("100", 6));
 
             // Create request with fee
-            const feeAmount = ethers.parseUnits("1", 18);
+            const feeAmount = ethers.parseUnits("1", 6);
             await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 ethers.parseUnits("100", 10),
-                ethers.ZeroAddress,
-                feeAmount,
-                { value: feeAmount }
+                feeAmount
             );
 
             // Check fee collected
-            expect(await token.collectedFees(ethers.ZeroAddress)).to.equal(feeAmount);
+            expect(await token.collectedFees()).to.equal(feeAmount);
 
             // Withdraw fee
-            const rtaBalanceBefore = await ethers.provider.getBalance(rta.address);
-            await token.connect(rta).withdrawFees(ethers.ZeroAddress, feeAmount, rta.address);
-            const rtaBalanceAfter = await ethers.provider.getBalance(rta.address);
+            const rtaBalanceBefore = await feeToken.balanceOf(rta.address);
+            await token.connect(rta).withdrawFees(feeAmount, rta.address);
+            const rtaBalanceAfter = await feeToken.balanceOf(rta.address);
 
-            // RTA balance should increase (minus gas costs)
-            expect(rtaBalanceAfter).to.be.gt(rtaBalanceBefore);
+            // RTA balance should increase
+            expect(rtaBalanceAfter - rtaBalanceBefore).to.equal(feeAmount);
         });
     });
 
@@ -412,13 +426,15 @@ describe("ERC1450 Security Token", function () {
         });
 
         it("Should prevent reentrancy in transfer requests", async function () {
+            // Set up fee token first
+            await token.connect(rta).setFeeToken(await feeToken.getAddress());
+
             // This would require a malicious contract to test properly
             // For now, we just verify the modifier is present by checking gas costs
             const tx = await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 100,
-                ethers.ZeroAddress,
                 0
             );
             expect(tx).to.not.be.reverted;

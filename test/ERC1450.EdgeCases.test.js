@@ -7,7 +7,7 @@ describe("ERC1450 Edge Cases & Additional Coverage", function () {
     const issuanceDate = Math.floor(Date.now() / 1000) - 86400 * 30; // 30 days ago
     let ERC1450, token, rtaProxy;
     let owner, issuer, rta, alice, bob, broker;
-    let mockERC20;
+    let mockERC20, feeToken;
 
     beforeEach(async function () {
         [owner, issuer, rta, alice, bob, broker] = await ethers.getSigners();
@@ -32,6 +32,10 @@ describe("ERC1450 Edge Cases & Additional Coverage", function () {
         const MockERC20 = await ethers.getContractFactory("contracts/mocks/MockERC20.sol:MockERC20");
         mockERC20 = await MockERC20.deploy("Mock Token", "MOCK", 18);
         await mockERC20.waitForDeployment();
+
+        // Deploy fee token (USDC-like with 6 decimals)
+        feeToken = await MockERC20.deploy("Fee Token", "FEE", 6);
+        await feeToken.waitForDeployment();
     });
 
     describe("Fee Token Validation", function () {
@@ -39,45 +43,53 @@ describe("ERC1450 Edge Cases & Additional Coverage", function () {
             // Mint tokens first
             await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
 
-            // Set up fee parameters with only ETH accepted
+            // Set up fee parameters with feeToken
+            await token.connect(rta).setFeeToken(feeToken.target);
             await token.connect(rta).setFeeParameters(
                 0, // flat fee
-                ethers.parseUnits("1", 10),
-                [ethers.ZeroAddress] // Only ETH accepted
+                ethers.parseUnits("1", 6)
             );
 
-            // Try to request transfer with non-accepted token (mockERC20)
+            // Verify the correct fee token is set
+            expect(await token.getFeeToken()).to.equal(feeToken.target);
+
+            // Mint fee tokens to alice and approve
+            await feeToken.mint(alice.address, ethers.parseUnits("10", 6));
+            await feeToken.connect(alice).approve(token.target, ethers.parseUnits("10", 6));
+
+            // Request transfer should work with correct fee token
             await expect(
                 token.connect(alice).requestTransferWithFee(
                     alice.address,
                     bob.address,
                     ethers.parseUnits("100", 10),
-                    mockERC20.target, // Using non-accepted token
-                    ethers.parseUnits("1", 10)
+                    ethers.parseUnits("1", 6)
                 )
-            ).to.be.revertedWithCustomError(token, "ERC20InvalidReceiver");
+            ).to.emit(token, "TransferRequested");
         });
 
         it("Should accept transfer request with accepted fee token", async function () {
             // Mint tokens first
             await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
 
-            // Set up fee parameters with ETH accepted
+            // Set up fee parameters with feeToken
+            await token.connect(rta).setFeeToken(feeToken.target);
             await token.connect(rta).setFeeParameters(
                 0, // flat fee
-                ethers.parseUnits("1", 10),
-                [ethers.ZeroAddress]
+                ethers.parseUnits("1", 6)
             );
 
-            // Request transfer with accepted token (ETH)
+            // Mint fee tokens to alice and approve
+            await feeToken.mint(alice.address, ethers.parseUnits("10", 6));
+            await feeToken.connect(alice).approve(token.target, ethers.parseUnits("10", 6));
+
+            // Request transfer with accepted fee token
             await expect(
                 token.connect(alice).requestTransferWithFee(
                     alice.address,
                     bob.address,
                     ethers.parseUnits("100", 10),
-                    ethers.ZeroAddress,
-                    ethers.parseUnits("1", 10),
-                    { value: ethers.parseUnits("1", 10) }
+                    ethers.parseUnits("1", 6)
                 )
             ).to.emit(token, "TransferRequested");
         });
@@ -164,75 +176,65 @@ describe("ERC1450 Edge Cases & Additional Coverage", function () {
             ).to.be.revertedWithCustomError(token, "ERC20InsufficientBalance");
         });
 
-        it("Should handle multiple fee token additions and removals", async function () {
-            const token1 = ethers.ZeroAddress;
-            const token2 = mockERC20.target;
-
-            // Add multiple fee tokens
+        it("Should handle fee token changes", async function () {
+            // Set initial fee token
+            await token.connect(rta).setFeeToken(feeToken.target);
             await token.connect(rta).setFeeParameters(
                 0,
-                ethers.parseUnits("1", 10),
-                [token1, token2]
+                ethers.parseUnits("1", 6)
             );
 
-            const acceptedTokens = await token.getAcceptedFeeTokens();
-            expect(acceptedTokens.length).to.equal(2);
-            expect(acceptedTokens[0]).to.equal(token1);
-            expect(acceptedTokens[1]).to.equal(token2);
+            expect(await token.getFeeToken()).to.equal(feeToken.target);
 
             // Update to different token
+            await token.connect(rta).setFeeToken(mockERC20.target);
             await token.connect(rta).setFeeParameters(
                 0,
-                ethers.parseUnits("2", 10),
-                [token1]
+                ethers.parseUnits("2", 18)
             );
 
-            const updatedTokens = await token.getAcceptedFeeTokens();
-            expect(updatedTokens.length).to.equal(1);
-            expect(updatedTokens[0]).to.equal(token1);
+            expect(await token.getFeeToken()).to.equal(mockERC20.target);
         });
     });
 
     describe("Fee Withdrawal Edge Cases", function () {
         it("Should allow withdrawing ERC20 fee tokens", async function () {
-            // Setup mock ERC20 as accepted fee token
+            // Setup feeToken as the fee token
+            await token.connect(rta).setFeeToken(feeToken.target);
             await token.connect(rta).setFeeParameters(
                 0,
-                ethers.parseUnits("1", 10),
-                [mockERC20.target]
+                ethers.parseUnits("1", 6)
             );
 
             // Mint tokens to alice
             await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
 
             // Mint fee tokens to alice
-            await mockERC20.mint(alice.address, ethers.parseUnits("10", 10));
+            await feeToken.mint(alice.address, ethers.parseUnits("10", 6));
 
             // Alice approves token contract to spend fee tokens
-            await mockERC20.connect(alice).approve(token.target, ethers.parseUnits("10", 10));
+            await feeToken.connect(alice).approve(token.target, ethers.parseUnits("10", 6));
 
             // Request transfer with ERC20 fee
             await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 ethers.parseUnits("100", 10),
-                mockERC20.target,
-                ethers.parseUnits("1", 10)
+                ethers.parseUnits("1", 6)
             );
 
             // Check fee collected
-            expect(await token.collectedFees(mockERC20.target)).to.equal(ethers.parseUnits("1", 10));
+            expect(await token.collectedFees()).to.equal(ethers.parseUnits("1", 6));
 
             // Withdraw fee
-            const rtaBalanceBefore = await mockERC20.balanceOf(rta.address);
+            const rtaBalanceBefore = await feeToken.balanceOf(rta.address);
             await token.connect(rta).withdrawFees(
-                mockERC20.target,
-                ethers.parseUnits("1", 10),
+                ethers.parseUnits("1", 6),
                 rta.address
             );
-            const rtaBalanceAfter = await mockERC20.balanceOf(rta.address);
+            const rtaBalanceAfter = await feeToken.balanceOf(rta.address);
 
-            expect(rtaBalanceAfter - rtaBalanceBefore).to.equal(ethers.parseUnits("1", 10));
+            expect(rtaBalanceAfter - rtaBalanceBefore).to.equal(ethers.parseUnits("1", 6));
         });
     });
 });

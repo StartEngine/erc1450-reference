@@ -207,7 +207,7 @@ For contributors and developers working on this project:
 
 3. **Run Tests**
    ```bash
-   npm test  # Runs all 341 tests
+   npm test  # Runs all 643 tests
    ```
 
 4. **Check Coverage**
@@ -224,7 +224,7 @@ For contributors and developers working on this project:
 6. **Pre-Commit Hooks** (automatic)
    - Husky automatically runs before each commit:
      - ✅ Compiles all Solidity contracts
-     - ✅ Runs full test suite (341 tests)
+     - ✅ Runs full test suite (643 tests)
    - To bypass (not recommended): `git commit --no-verify`
 
 ## Deployment
@@ -282,14 +282,19 @@ npx hardhat run scripts/deploy.js --network localhost
 ### Token Holder Operations
 
 ```javascript
-// Request a transfer
+// RTA sets fee token (one-time setup, typically USDC)
+await token.connect(rta).setFeeToken(usdcAddress);
+await token.connect(rta).setFeeParameters(0, feeValue); // 0=flat, 1=percentage
+
+// Token holder approves fee token spend
+await feeToken.connect(holder).approve(tokenAddress, feeAmount);
+
+// Request a transfer (single fee token - no ETH)
 await token.requestTransferWithFee(
     fromAddress,
     toAddress,
     amount,
-    ethers.ZeroAddress,  // ETH for fee
-    feeAmount,
-    { value: feeAmount }
+    feeAmount
 );
 
 // Check transfer request status
@@ -330,17 +335,25 @@ interface IERC1450 is IERC20, IERC165 {
     function mint(address to, uint256 amount) external returns (bool);
     function burnFrom(address from, uint256 amount) external returns (bool);
 
+    // Fee Configuration (single ERC-20 fee token)
+    function setFeeToken(address token) external;
+    function getFeeToken() external view returns (address);
+    function setFeeParameters(uint8 feeType, uint256 feeValue) external;
+    function getTransferFee(address from, address to, uint256 amount) external view returns (uint256);
+
     // Transfer Request System
     function requestTransferWithFee(
         address from,
         address to,
         uint256 amount,
-        address feeToken,
         uint256 feeAmount
-    ) external payable returns (uint256 requestId);
+    ) external returns (uint256 requestId);
 
-    function processTransferRequest(uint256 requestId) external;
+    function processTransferRequest(uint256 requestId, bool approved) external;
     function rejectTransferRequest(uint256 requestId, uint16 reasonCode, bool refundFee) external;
+
+    // Fee Withdrawal
+    function withdrawFees(uint256 amount, address recipient) external;
 
     // Compliance
     function setAccountFrozen(address account, bool frozen) external;
@@ -429,7 +442,7 @@ The ERC-1450 specification includes comprehensive documentation for real-world s
 1. **Private Key Management**: RTA signers must secure their private keys
 2. **Multi-Sig Threshold**: Choose appropriate signature requirements
 3. **Transfer Agent Lock**: Once set to RTAProxy, cannot be changed
-4. **Fee Collection**: Ensure proper fee token validation
+4. **Fee Token**: Single ERC-20 fee token (e.g., USDC) configured by RTA
 5. **Reentrancy Protection**: All state-changing functions protected
 6. **Access Control**: Strict RTA-only modifier on critical functions
 
@@ -576,7 +589,7 @@ When updating contracts:
 ### Initial Security Analysis ✅
 - **Slither Analysis**: Completed (November 2024) - No critical vulnerabilities found
 - **Static Analysis**: All high-priority issues resolved in [commit 9805925](https://github.com/StartEngine/erc1450-reference/commit/9805925)
-- **Test Coverage**: 63 comprehensive tests passing
+- **Test Coverage**: 643 comprehensive tests passing
 - **Security Score**: 9.5/10 based on automated analysis
 
 ### Professional Audit Status 🔄

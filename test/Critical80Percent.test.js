@@ -15,6 +15,7 @@ describe("Critical 80% Coverage - Final Push", function () {
     let rtaProxy, rtaProxyUpgradeable;
     let owner, rta1, rta2, alice, bob, carol, dave;
     let tokenAddress, tokenUpgradeableAddress;
+    let feeToken;
 
     async function submitAndConfirmOperation(proxy, target, data, signers) {
         const opId = await proxy.operationCount();
@@ -52,6 +53,11 @@ describe("Critical 80% Coverage - Final Push", function () {
         );
         await tokenUpgradeable.waitForDeployment();
         tokenUpgradeableAddress = await tokenUpgradeable.getAddress();
+
+        // Deploy MockERC20 for fee token with 6 decimals (like USDC)
+        const MockERC20 = await ethers.getContractFactory("MockERC20");
+        feeToken = await MockERC20.deploy("Fee Token", "FEE", 6);
+        await feeToken.waitForDeployment();
     });
 
     describe("ERC1450 Deep Edge Cases", function () {
@@ -128,17 +134,26 @@ describe("Critical 80% Coverage - Final Push", function () {
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, mintData, [rta1, rta2]);
 
+            // Set fee token and fee parameters
+            const setFeeTokenData = token.interface.encodeFunctionData("setFeeToken", [
+                await feeToken.getAddress()
+            ]);
+            await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeTokenData, [rta1, rta2]);
+
             const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseUnits("0.01", 10), [ethers.ZeroAddress]
+                0, ethers.parseUnits("0.01", 6)
             ]);
             await submitAndConfirmOperation(rtaProxy, tokenAddress, setFeeData, [rta1, rta2]);
+
+            // Mint fee tokens to alice and approve
+            await feeToken.mint(alice.address, ethers.parseUnits("10", 6));
+            await feeToken.connect(alice).approve(tokenAddress, ethers.parseUnits("10", 6));
 
             // Create multiple requests with fees
             for (let i = 0; i < 5; i++) {
                 await token.connect(alice).requestTransferWithFee(
                     alice.address, bob.address, ethers.parseUnits("10", 10),
-                    ethers.ZeroAddress, ethers.parseUnits("0.01", 10),
-                    { value: ethers.parseUnits("0.01", 10) }
+                    ethers.parseUnits("0.01", 6)
                 );
             }
 
@@ -210,52 +225,46 @@ describe("Critical 80% Coverage - Final Push", function () {
         });
 
         it("Should handle multiple fee token types", async function () {
-            // Deploy multiple mock ERC20s
-            const MockERC20 = await ethers.getContractFactory("MockERC20");
-            const feeToken1 = await MockERC20.deploy("Fee1", "FEE1", 18);
-            const feeToken2 = await MockERC20.deploy("Fee2", "FEE2", 18);
-            await feeToken1.waitForDeployment();
-            await feeToken2.waitForDeployment();
-
-            // Mint fee tokens
-            await feeToken1.mint(alice.address, ethers.parseUnits("100", 10));
-            await feeToken2.mint(alice.address, ethers.parseUnits("100", 10));
-
             // Mint security tokens
             const mintData = tokenUpgradeable.interface.encodeFunctionData("mint", [
                 alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate1
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, mintData, [rta1, rta2]);
 
-            // Set fees with multiple tokens
+            // Set fee token and fee parameters
+            const setFeeTokenData = tokenUpgradeable.interface.encodeFunctionData("setFeeToken", [
+                await feeToken.getAddress()
+            ]);
+            await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, setFeeTokenData, [rta1, rta2]);
+
             const setFeeData = tokenUpgradeable.interface.encodeFunctionData("setFeeParameters", [
-                0, ethers.parseUnits("1", 10), [await feeToken1.getAddress(), await feeToken2.getAddress()]
+                0, ethers.parseUnits("1", 6)
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, setFeeData, [rta1, rta2]);
 
-            // Make requests with different fee tokens
-            await feeToken1.connect(alice).approve(tokenUpgradeableAddress, ethers.parseUnits("10", 10));
+            // Mint fee tokens to alice and approve
+            await feeToken.mint(alice.address, ethers.parseUnits("100", 6));
+            await feeToken.connect(alice).approve(tokenUpgradeableAddress, ethers.parseUnits("100", 6));
+
+            // Make requests with fee token
             await tokenUpgradeable.connect(alice).requestTransferWithFee(
                 alice.address, bob.address, ethers.parseUnits("100", 10),
-                await feeToken1.getAddress(), ethers.parseUnits("1", 10),
-                { value: 0 }
+                ethers.parseUnits("1", 6)
             );
 
-            await feeToken2.connect(alice).approve(tokenUpgradeableAddress, ethers.parseUnits("10", 10));
             await tokenUpgradeable.connect(alice).requestTransferWithFee(
                 alice.address, carol.address, ethers.parseUnits("100", 10),
-                await feeToken2.getAddress(), ethers.parseUnits("1", 10),
-                { value: 0 }
+                ethers.parseUnits("1", 6)
             );
 
-            // Withdraw different fee types
+            // Withdraw fees
             const withdraw1 = tokenUpgradeable.interface.encodeFunctionData("withdrawFees", [
-                await feeToken1.getAddress(), ethers.parseUnits("1", 10), await rtaProxyUpgradeable.getAddress()
+                ethers.parseUnits("1", 6), await rtaProxyUpgradeable.getAddress()
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, withdraw1, [rta1, rta2]);
 
             const withdraw2 = tokenUpgradeable.interface.encodeFunctionData("withdrawFees", [
-                await feeToken2.getAddress(), ethers.parseUnits("1", 10), await rtaProxyUpgradeable.getAddress()
+                ethers.parseUnits("1", 6), await rtaProxyUpgradeable.getAddress()
             ]);
             await submitAndConfirmOperation(rtaProxyUpgradeable, tokenUpgradeableAddress, withdraw2, [rta1, rta2]);
         });

@@ -2,7 +2,7 @@ const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
 describe("ERC1450 Critical Error Paths - 100% Coverage", function () {
-    let ERC1450, token, rtaProxy;
+    let ERC1450, token, rtaProxy, feeToken;
     let owner, issuer, rta, alice, bob, signer2, signer3;
 
     // Common regulation constants for testing
@@ -16,6 +16,11 @@ describe("ERC1450 Critical Error Paths - 100% Coverage", function () {
         const RTAProxy = await ethers.getContractFactory("RTAProxy");
         rtaProxy = await RTAProxy.deploy([rta.address, signer2.address, signer3.address], 2);
         await rtaProxy.waitForDeployment();
+
+        // Deploy MockERC20 for fee token (6 decimals like USDC)
+        const MockERC20 = await ethers.getContractFactory("MockERC20");
+        feeToken = await MockERC20.deploy("USD Coin", "USDC", 6);
+        await feeToken.waitForDeployment();
 
         // Deploy ERC1450 token
         ERC1450 = await ethers.getContractFactory("ERC1450");
@@ -68,7 +73,8 @@ describe("ERC1450 Critical Error Paths - 100% Coverage", function () {
 
                 // Create a transfer request with zero receiver
                 // First we need to set fee parameters
-                await token.connect(rta).setFeeParameters(0, 0, [ethers.ZeroAddress]);
+                await token.connect(rta).setFeeToken(feeToken.target);
+                await token.connect(rta).setFeeParameters(0, 0);
 
                 // Request transfer to zero address
                 await expect(
@@ -76,7 +82,6 @@ describe("ERC1450 Critical Error Paths - 100% Coverage", function () {
                         alice.address,
                         ethers.ZeroAddress,
                         ethers.parseUnits("100", 10),
-                        ethers.ZeroAddress,
                         0
                     )
                 ).to.be.revertedWithCustomError(token, "ERC20InvalidReceiver");
@@ -130,14 +135,14 @@ describe("ERC1450 Critical Error Paths - 100% Coverage", function () {
                 await token.connect(rta).mint(alice.address, ethers.parseUnits("50", 10), REG_US_A, issuanceDate);
 
                 // Set fee parameters
-                await token.connect(rta).setFeeParameters(0, 0, [ethers.ZeroAddress]);
+                await token.connect(rta).setFeeToken(feeToken.target);
+                await token.connect(rta).setFeeParameters(0, 0);
 
                 // Request transfer more than balance
                 const tx = await token.connect(alice).requestTransferWithFee(
                     alice.address,
                     bob.address,
                     ethers.parseUnits("100", 10), // More than alice has
-                    ethers.ZeroAddress,
                     0
                 );
                 const receipt = await tx.wait();
@@ -175,14 +180,14 @@ describe("ERC1450 Critical Error Paths - 100% Coverage", function () {
     describe("Additional Branch Coverage", function () {
         it("Should handle transfer request with zero amount", async function () {
             await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
-            await token.connect(rta).setFeeParameters(0, 0, [ethers.ZeroAddress]);
+            await token.connect(rta).setFeeToken(feeToken.target);
+            await token.connect(rta).setFeeParameters(0, 0);
 
             // Request transfer with zero amount
             const tx = await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 0, // Zero amount
-                ethers.ZeroAddress,
                 0
             );
 
@@ -215,17 +220,20 @@ describe("ERC1450 Critical Error Paths - 100% Coverage", function () {
 
         it("Should handle refund and non-refund in rejection", async function () {
             await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
-            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 18), [ethers.ZeroAddress]);
+            await token.connect(rta).setFeeToken(feeToken.target);
+            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 6));
+
+            // Mint fee tokens to alice and approve
+            const feeAmount = ethers.parseUnits("1", 6);
+            await feeToken.mint(alice.address, feeAmount);
+            await feeToken.connect(alice).approve(token.target, feeAmount);
 
             // Request with fee
-            const feeAmount = ethers.parseUnits("1", 10);
             const tx = await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 ethers.parseUnits("100", 10),
-                ethers.ZeroAddress,
-                feeAmount,
-                { value: feeAmount }
+                feeAmount
             );
 
             const receipt = await tx.wait();
@@ -243,22 +251,25 @@ describe("ERC1450 Critical Error Paths - 100% Coverage", function () {
             await token.connect(rta).rejectTransferRequest(requestId, 3, false);
 
             // Fee should still be in collected fees
-            expect(await token.collectedFees(ethers.ZeroAddress)).to.be.gt(0);
+            expect(await token.collectedFees()).to.be.gt(0);
         });
 
         it("Should handle rejection with refund", async function () {
             await token.connect(rta).mint(alice.address, ethers.parseUnits("1000", 10), REG_US_A, issuanceDate);
-            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 18), [ethers.ZeroAddress]);
+            await token.connect(rta).setFeeToken(feeToken.target);
+            await token.connect(rta).setFeeParameters(0, ethers.parseUnits("1", 6));
+
+            // Mint fee tokens to alice and approve
+            const feeAmount = ethers.parseUnits("1", 6);
+            await feeToken.mint(alice.address, feeAmount);
+            await feeToken.connect(alice).approve(token.target, feeAmount);
 
             // Request with fee
-            const feeAmount = ethers.parseUnits("1", 10);
             const tx = await token.connect(alice).requestTransferWithFee(
                 alice.address,
                 bob.address,
                 ethers.parseUnits("100", 10),
-                ethers.ZeroAddress,
-                feeAmount,
-                { value: feeAmount }
+                feeAmount
             );
 
             const receipt = await tx.wait();
@@ -272,12 +283,12 @@ describe("ERC1450 Critical Error Paths - 100% Coverage", function () {
             });
             const requestId = token.interface.parseLog(event).args.requestId;
 
-            const aliceBalanceBefore = await ethers.provider.getBalance(alice.address);
+            const aliceBalanceBefore = await feeToken.balanceOf(alice.address);
 
             // Test rejection WITH refund
             await token.connect(rta).rejectTransferRequest(requestId, 3, true);
 
-            const aliceBalanceAfter = await ethers.provider.getBalance(alice.address);
+            const aliceBalanceAfter = await feeToken.balanceOf(alice.address);
 
             // Alice should have received refund
             expect(aliceBalanceAfter).to.equal(aliceBalanceBefore + feeAmount);

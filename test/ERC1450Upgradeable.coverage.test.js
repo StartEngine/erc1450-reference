@@ -2,9 +2,9 @@ const { expect } = require("chai");
 const { ethers, upgrades } = require("hardhat");
 
 describe("ERC1450Upgradeable - Additional Coverage", function () {
-  let token, rtaProxy;
+  let token, rtaProxy, feeToken;
   let owner, rta1, rta2, rta3, holder1, holder2, feeRecipient;
-  let tokenAddress, rtaProxyAddress;
+  let tokenAddress, rtaProxyAddress, feeTokenAddress;
 
   // Regulation constants
   const REG_US_A = 0x0001;
@@ -25,6 +25,12 @@ describe("ERC1450Upgradeable - Additional Coverage", function () {
     );
     await rtaProxy.waitForDeployment();
     rtaProxyAddress = await rtaProxy.getAddress();
+
+    // Deploy MockERC20 for fee token (6 decimals like USDC)
+    const MockERC20 = await ethers.getContractFactory("MockERC20");
+    feeToken = await MockERC20.deploy("Fee Token", "FEE", 6);
+    await feeToken.waitForDeployment();
+    feeTokenAddress = await feeToken.getAddress();
 
     // Deploy ERC1450Upgradeable
     const ERC1450Upgradeable = await ethers.getContractFactory("ERC1450Upgradeable");
@@ -163,31 +169,38 @@ describe("ERC1450Upgradeable - Additional Coverage", function () {
       await rtaProxy.connect(rta1).submitOperation(tokenAddress, mintData, 0);
       await rtaProxy.connect(rta2).confirmOperation(0);
 
-      // Set fee parameters (feeType, feeValue, acceptedTokens)
+      // Set fee token first
+      const setFeeTokenData = token.interface.encodeFunctionData("setFeeToken", [
+        feeTokenAddress
+      ]);
+      await rtaProxy.connect(rta1).submitOperation(tokenAddress, setFeeTokenData, 0);
+      await rtaProxy.connect(rta2).confirmOperation(1);
+
+      // Set fee parameters (feeType, feeValue) - only 2 args
       const setFeeData = token.interface.encodeFunctionData("setFeeParameters", [
         0, // Flat fee
-        ethers.parseUnits("0.01", 10), // 0.01 ETH fee
-        [ethers.ZeroAddress] // Accept ETH
+        ethers.parseUnits("10", 6) // 10 FEE tokens
       ]);
       await rtaProxy.connect(rta1).submitOperation(tokenAddress, setFeeData, 0);
-      await rtaProxy.connect(rta2).confirmOperation(1);
+      await rtaProxy.connect(rta2).confirmOperation(2);
+
+      // Mint fee tokens to holder1 and approve
+      await feeToken.mint(holder1.address, ethers.parseUnits("1000", 6));
+      await feeToken.connect(holder1).approve(tokenAddress, ethers.parseUnits("1000", 6));
     });
 
     it("Should revert when withdrawing more fees than collected", async function () {
-      // Request transfer with fee
+      // Request transfer with fee (4 args: from, to, amount, feeAmount)
       await token.connect(holder1).requestTransferWithFee(
         holder1.address,
         holder2.address,
         ethers.parseUnits("100", 10),
-        ethers.ZeroAddress,
-        ethers.parseUnits("0.01", 10),
-        { value: ethers.parseUnits("0.01", 10) }
+        ethers.parseUnits("10", 6)
       );
 
-      // Try to withdraw more than collected (token, amount, recipient)
+      // Try to withdraw more than collected (amount, recipient) - only 2 args
       const withdrawData = token.interface.encodeFunctionData("withdrawFees", [
-        ethers.ZeroAddress,
-        ethers.parseUnits("0.02", 10), // More than collected
+        ethers.parseUnits("20", 6), // More than collected
         feeRecipient.address
       ]);
 
@@ -214,20 +227,17 @@ describe("ERC1450Upgradeable - Additional Coverage", function () {
     });
 
     it("Should handle zero fee recipient validation", async function () {
-      // Request transfer with fee
+      // Request transfer with fee (4 args: from, to, amount, feeAmount)
       await token.connect(holder1).requestTransferWithFee(
         holder1.address,
         holder2.address,
         ethers.parseUnits("100", 10),
-        ethers.ZeroAddress,
-        ethers.parseUnits("0.01", 10),
-        { value: ethers.parseUnits("0.01", 10) }
+        ethers.parseUnits("10", 6)
       );
 
-      // Try to withdraw to zero address (token, amount, recipient)
+      // Try to withdraw to zero address (amount, recipient) - only 2 args
       const withdrawData = token.interface.encodeFunctionData("withdrawFees", [
-        ethers.ZeroAddress,
-        ethers.parseUnits("0.01", 10),
+        ethers.parseUnits("10", 6),
         ethers.ZeroAddress // Invalid recipient
       ]);
 

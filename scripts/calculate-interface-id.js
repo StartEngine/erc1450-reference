@@ -17,6 +17,7 @@ async function main() {
 
     // List of functions that are part of IERC1450 interface
     // (excluding functions inherited from IERC20, IERC165)
+    // Updated for single fee token design (December 2024)
     const ierc1450Functions = [
         "changeIssuer(address)",
         "setTransferAgent(address)",
@@ -25,11 +26,12 @@ async function main() {
         "burnFrom(address,uint256)",
         "decimals()",
         "isSecurityToken()",
-        "requestTransferWithFee(address,address,uint256,address,uint256)",
-        "getTransferFee(address,address,uint256,address)",  // Updated signature
-        "getAcceptedFeeTokens()",  // New function
-        "setFeeParameters(uint8,uint256,address[])",
-        "withdrawFees(address,uint256,address)",
+        "requestTransferWithFee(address,address,uint256,uint256)",  // 4 params (no feeToken)
+        "getTransferFee(address,address,uint256)",  // 3 params (no feeToken)
+        "setFeeToken(address)",  // Single fee token setter
+        "getFeeToken()",  // Single fee token getter
+        "setFeeParameters(uint8,uint256)",  // 2 params (type, value)
+        "withdrawFees(uint256,address)",  // 2 params (amount, recipient)
         "setBrokerStatus(address,bool)",
         "isBroker(address)",
         "processTransferRequest(uint256)",
