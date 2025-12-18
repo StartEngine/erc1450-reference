@@ -428,7 +428,7 @@ contract RTAProxyUpgradeable is Initializable, UUPSUpgradeable {
      * @return string Version identifier
      */
     function version() external pure returns (string memory) {
-        return "1.14.0";
+        return "1.15.0";
     }
 
     // ============ ETH Receive Function ============
