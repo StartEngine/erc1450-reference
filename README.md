@@ -579,9 +579,11 @@ When updating contracts:
 - **Test Coverage**: 63 comprehensive tests passing
 - **Security Score**: 9.5/10 based on automated analysis
 
-### Professional Audit Status ⚠️
-**This implementation has undergone initial security analysis but has NOT received a professional third-party audit. Production deployment should only proceed after:**
-- Formal security audit by a reputable firm (OpenZeppelin, Trail of Bits, ConsenSys, etc.)
+### Professional Audit Status 🔄
+**This implementation is currently undergoing a professional security audit by [Halborn](https://www.halborn.com/).** The audit is in progress and findings are being reviewed. This README will be updated once the audit is finalized.
+
+Production deployment should only proceed after:
+- Completion of the ongoing Halborn security audit
 - Thorough legal review for your jurisdiction
 - Comprehensive integration testing
 
