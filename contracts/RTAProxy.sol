@@ -19,6 +19,9 @@ contract RTAProxy {
     mapping(address => bool) public isSigner;
     uint256 public requiredSignatures;
 
+    // Operation expiration (7 days)
+    uint256 public constant OPERATION_EXPIRY = 7 days;
+
     // Operation tracking
     struct Operation {
         address target;
@@ -49,6 +52,7 @@ contract RTAProxy {
     error NotConfirmed();
     error InsufficientConfirmations();
     error OperationAlreadyExecuted();
+    error OperationExpired();
     error InvalidSignerCount();
 
     // ============ Modifiers ============
@@ -207,6 +211,11 @@ contract RTAProxy {
     function _checkAndExecute(uint256 operationId) internal {
         Operation storage op = operations[operationId];
 
+        // Check if operation has expired
+        if (block.timestamp > op.timestamp + OPERATION_EXPIRY) {
+            revert OperationExpired();
+        }
+
         // Recompute confirmations from active signers only
         // This prevents removed signers' confirmations from counting
         uint256 activeConfirmations = 0;
@@ -286,6 +295,20 @@ contract RTAProxy {
             op.executed,
             op.timestamp
         );
+    }
+
+    /**
+     * @notice Check if an operation has expired
+     * @param operationId The operation ID
+     * @return bool True if the operation has expired
+     */
+    function isOperationExpired(uint256 operationId)
+        external
+        view
+        operationExists(operationId)
+        returns (bool)
+    {
+        return block.timestamp > operations[operationId].timestamp + OPERATION_EXPIRY;
     }
 
     // ============ Emergency Functions ============
