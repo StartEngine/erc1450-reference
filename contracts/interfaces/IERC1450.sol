@@ -309,6 +309,14 @@ interface IERC1450 is IERC20, IERC165 {
      */
     function isSecurityToken() external pure returns (bool);
 
+    /**
+     * @notice Returns the contract implementation version
+     * @return string Semantic version string (e.g., "1.15.0")
+     * @dev Enables upgrade detection for UUPS-upgradeable contracts.
+     *      Version SHOULD match the package version.
+     */
+    function version() external pure returns (string memory);
+
     // ============ Transfer Request System ============
 
     /**
