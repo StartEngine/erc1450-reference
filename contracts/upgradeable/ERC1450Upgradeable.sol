@@ -403,6 +403,14 @@ contract ERC1450Upgradeable is
             }
         }
 
+        // Clean up empty batches (iterate backwards to avoid index issues)
+        for (uint256 i = batches.length; i > 0; i--) {
+            if (batches[i - 1].amount == 0) {
+                batches[i - 1] = batches[batches.length - 1];
+                batches.pop();
+            }
+        }
+
         require(remainingToBurn == 0, "ERC1450: Insufficient tokens of specified regulation");
 
         unchecked {
@@ -992,6 +1000,14 @@ contract ERC1450Upgradeable is
                 _regulationSupply[batches[i].regulationType] -= burnFromBatch;
 
                 emit TokensBurned(from, burnFromBatch, batches[i].regulationType, batches[i].issuanceDate);
+            }
+        }
+
+        // Clean up empty batches (iterate backwards to avoid index issues)
+        for (uint256 i = batches.length; i > 0; i--) {
+            if (batches[i - 1].amount == 0) {
+                batches[i - 1] = batches[batches.length - 1];
+                batches.pop();
             }
         }
     }
