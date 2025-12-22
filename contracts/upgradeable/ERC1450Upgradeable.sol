@@ -795,7 +795,8 @@ contract ERC1450Upgradeable is
         collectedFees[token] -= amount;
 
         if (token == address(0)) {
-            payable(recipient).transfer(amount);
+            (bool success, ) = payable(recipient).call{value: amount}("");
+            require(success, "ERC1450: ETH transfer failed");
         } else {
             IERC20(token).safeTransfer(recipient, amount);
         }
@@ -962,7 +963,8 @@ contract ERC1450Upgradeable is
         }
 
         if (token == address(0)) {
-            payable(_transferAgent).transfer(amount);
+            (bool success, ) = payable(_transferAgent).call{value: amount}("");
+            require(success, "ERC1450: ETH transfer failed");
         } else {
             IERC20(token).safeTransfer(_transferAgent, amount);
         }

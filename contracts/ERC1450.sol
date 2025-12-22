@@ -919,7 +919,8 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
         }
 
         if (token == address(0)) {
-            payable(_transferAgent).transfer(amount);
+            (bool success, ) = payable(_transferAgent).call{value: amount}("");
+            require(success, "ERC1450: ETH transfer failed");
         } else {
             IERC20(token).safeTransfer(_transferAgent, amount);
         }
