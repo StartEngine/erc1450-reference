@@ -670,6 +670,12 @@ contract ERC1450 is IERC1450, IERC20Metadata, ERC165, Ownable, ReentrancyGuard {
     ) external override onlyTransferAgent {
         TransferRequest storage request = transferRequests[requestId];
 
+        // Prevent replay attacks - reject already finalized requests
+        require(
+            request.status != RequestStatus.Executed && request.status != RequestStatus.Rejected,
+            "ERC1450: Request already finalized"
+        );
+
         _updateRequestStatus(requestId, RequestStatus.Rejected);
 
         // Handle fee refund if requested (CEI pattern: update state before external calls)

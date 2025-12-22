@@ -693,6 +693,12 @@ contract ERC1450Upgradeable is
     ) external override onlyTransferAgent {
         TransferRequest storage request = transferRequests[requestId];
 
+        // Prevent replay attacks - reject already finalized requests
+        require(
+            request.status != RequestStatus.Executed && request.status != RequestStatus.Rejected,
+            "ERC1450: Request already finalized"
+        );
+
         _updateRequestStatus(requestId, RequestStatus.Rejected);
 
         // Handle fee refund if requested (CEI pattern: update state before external calls)
