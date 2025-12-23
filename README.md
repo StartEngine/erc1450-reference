@@ -4,6 +4,10 @@
 
 This repository contains the official reference implementation of ERC-1450, a standard for compliant security tokens controlled by a Registered Transfer Agent (RTA).
 
+### Production Proven
+
+This standard is backed by real-world production experience. StartEngine has **tokenized over $1 billion in securities** on the blockchain using the patterns and architecture formalized in ERC-1450. The standard captures lessons learned from years of operating compliant security token infrastructure under SEC regulations.
+
 ### Project Structure
 
 This reference implementation is part of a two-repository system:
