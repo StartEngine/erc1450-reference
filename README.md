@@ -38,6 +38,10 @@ ERC-1450 enables compliant securities offerings under SEC regulations by providi
 - **Court Order Support**: Forced transfers for legal compliance
 - **Account Restrictions**: Freeze/unfreeze capabilities
 
+## White Paper
+
+For a non-technical overview of ERC-1450 — the regulatory background, design rationale, and operational workflows — see the [ERC-1450 White Paper](docs/ERC-1450-WhitePaper.pdf) (v1.0, December 2025).
+
 ## Key Features
 
 ### 1. RTA-Exclusive Operations
